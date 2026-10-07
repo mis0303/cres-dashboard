@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CRES Task Dashboard</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#14565b">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="CRES Tasks">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<script src="config.js"></script>
+<style>
+  :root{
+    --brand:#14565b; --bg:#f4f6f8; --card:#fff; --ink:#1f2933; --muted:#6b7280; --line:#e5e7eb;
+    --late:#c0392b; --lateBg:#fdecea; --ok:#1e8449; --okBg:#e7f6ec; --due:#9a6700; --dueBg:#fff4d6;
+    --up:#475569; --upBg:#eef2f6; --chip:#eef4f4;
+    --L2O:#6b4fa0; --O2D:#0f766e; --PE:#b45309;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
+  header{background:var(--brand);color:#fff;padding:10px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:6}
+  header .brand{font-weight:700;font-size:16px}
+  header .who{opacity:.92;font-size:13px}
+  header .sync{opacity:.75;font-size:12px}
+  header .sp{flex:1}
+  header select{padding:6px 8px;border-radius:6px;border:0;font-size:13px;max-width:240px}
+  .testtag{background:#e4572e;color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600}
+  .iconbtn{background:rgba(255,255,255,.15);border:0;color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:13px;position:relative}
+  .iconbtn:hover{background:rgba(255,255,255,.28)}
+  .badge{position:absolute;top:-6px;right:-6px;background:#e4572e;color:#fff;border-radius:10px;font-size:10px;padding:1px 6px;font-weight:700}
+  .wrap{max-width:1500px;margin:0 auto;padding:16px}
+  .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+  .tab{padding:8px 14px;border-radius:20px;border:1px solid var(--line);background:#fff;cursor:pointer;font-weight:600;color:var(--muted)}
+  .tab.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .btn{padding:8px 14px;border-radius:6px;border:1px solid var(--brand);background:var(--brand);color:#fff;cursor:pointer;font-weight:600;font-size:13px}
+  .btn.ghost{background:#fff;color:var(--brand)} .btn.sm{padding:4px 10px;font-size:12px}
+  .btn.red{background:var(--late);border-color:var(--late)} .btn:disabled{opacity:.5;cursor:default}
+  .errors{background:var(--lateBg);color:var(--late);border:1px solid #f5c6c0;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:13px}
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .card .n{font-size:22px;font-weight:700} .card .l{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+  .card.late .n{color:var(--late)} .card.ok .n{color:var(--ok)}
+  .panels{display:grid;grid-template-columns:1.15fr 1fr 1.15fr;gap:12px;align-items:start}
+  .panels > .panel{min-width:0}
+  .panel{background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .panel h4{margin:0;padding:10px 12px;font-size:13px;color:#fff;display:flex;justify-content:space-between;align-items:center}
+  .panel h4 small{font-weight:400;opacity:.85}
+  .panel .scroll{height:226px;overflow:auto}          /* every dashboard table has the same fixed size; empty space stays empty */
+  .panel table{min-width:560px}
+  .panel td,.panel th{white-space:nowrap}
+  .panel thead th{position:sticky;top:0;z-index:1}
+  .panel td{height:48px}
+  .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .filters select,.filters input{padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;font-size:13px}
+  .tablewrap{background:#fff;border:1px solid var(--line);border-radius:10px;overflow:auto}
+  table{width:100%;border-collapse:collapse}
+  th{background:#f9fafb;text-align:left;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+  td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  tr:last-child td{border-bottom:0}
+  tr.click{cursor:pointer} tr.click:hover td{background:#f7fafa}
+  .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--muted);white-space:nowrap}
+  .small{font-size:12px;color:var(--muted)}
+  .late{color:var(--late);font-weight:700} .ok{color:var(--ok);font-weight:600} .muted{color:var(--muted)}
+  .pill{display:inline-block;padding:2px 9px;border-radius:12px;font-size:12px;font-weight:600;background:var(--chip);white-space:nowrap}
+  .tag{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;margin-left:4px;vertical-align:middle}
+  .tag.new{background:#f59e0b;color:#fff} .tag.new.stale{background:var(--late)} .tag.pe{background:#fdf0e1;color:var(--PE)}
+  .tag.al{background:#e8f1fb;color:#1d5fa8}
+  .col{display:flex;flex-direction:column;gap:12px;min-width:0}
+  .typesel{display:flex;gap:8px;margin-bottom:6px}
+  .typesel button{flex:1;padding:10px;border-radius:8px;border:1px solid var(--line);background:#fff;font-weight:600;cursor:pointer;color:var(--muted)}
+  .typesel button.on{border-color:var(--brand);background:#eef6f6;color:var(--brand)}
+  select.st{padding:4px 6px;border-radius:12px;border:1px solid var(--line);font-weight:600;font-size:12px}
+  .s-pending{background:#fff7e6;color:#9a6700} .s-inprogress{background:#e8f1fb;color:#1d5fa8}
+  .s-onhold{background:#f1ecfa;color:#6b4fa0} .s-done{background:var(--okBg);color:var(--ok)} .s-cancelled{background:#f3f4f6;color:#6b7280}
+  /* tracker grid */
+  .grid{border-collapse:separate;border-spacing:0;font-size:12px}
+  .grid th,.grid td{border-bottom:1px solid var(--line);border-right:1px solid #f0f2f4;padding:5px 6px;text-align:center}
+  .grid thead th{position:sticky;background:#f9fafb;z-index:2}
+  .grid thead tr:first-child th{top:0;color:#fff;font-size:11px;letter-spacing:.4px}
+  .grid thead tr:nth-child(2) th{top:27px;text-transform:none;font-size:11px;white-space:normal;min-width:84px;max-width:100px;line-height:1.25;vertical-align:bottom;color:#374151}
+  .grid .ev{position:sticky;left:0;background:#fff;z-index:1;text-align:left;min-width:220px;max-width:240px;border-right:2px solid var(--line)}
+  .grid thead .ev{z-index:3;background:#f9fafb;color:#374151 !important;vertical-align:bottom;font-size:12px}
+  .grid tbody tr:hover td{background:#fafcfc} .grid tbody tr:hover td.ev{background:#f2f7f7}
+  .c{display:inline-block;min-width:66px;padding:2px 4px;border-radius:5px;font-weight:600;white-space:nowrap}
+  .c.done{background:var(--okBg);color:var(--ok)} .c.mk{background:#e8f1fb;color:#1d5fa8;border:1px dashed #1d5fa8} .c.no{background:#f3f4f6;color:#6b7280}
+  .c.late{background:var(--lateBg);color:var(--late)} .c.due{background:var(--dueBg);color:var(--due)} .c.up{background:var(--upBg);color:var(--up)}
+  .legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-bottom:8px;align-items:center}
+  .scope{display:inline-flex;border:1px solid var(--line);border-radius:20px;overflow:hidden;background:#fff}
+  .scope button{border:0;background:#fff;padding:8px 14px;font-weight:600;color:var(--muted);cursor:pointer}
+  .scope button.on{background:var(--brand);color:#fff}
+  .chipf{cursor:pointer;border:2px solid transparent} .chipf:hover{filter:brightness(.95)}
+  .chipf.sel{border-color:var(--ink)} .c.all{background:#fff;color:var(--ink);border:1px solid var(--line)} .c.all.sel{border:2px solid var(--ink)}
+  /* mobile preview (desktop toggle) */
+  body.mobile{background:#d9dee3}
+  body.mobile #app{max-width:390px;margin:0 auto;background:var(--bg);min-height:100vh;box-shadow:0 0 0 1px #c5ccd3,0 10px 40px rgba(0,0,0,.15)}
+  #viewbtn{display:inline-block}
+  .empty{padding:24px;text-align:center;color:var(--muted)}
+  .modal{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:20;padding:16px}
+  .modal.hidden{display:none}
+  .box{background:#fff;border-radius:12px;max-width:520px;width:100%;padding:18px 20px;max-height:90vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+  .box.wide{max-width:900px}
+  .box h3{margin:0 0 10px;color:var(--brand)}
+  .box label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:10px 0 4px}
+  .box input,.box select,.box textarea{width:100%;padding:8px;border:1px solid var(--line);border-radius:6px;font-size:14px;font-family:inherit}
+  .box textarea{min-height:70px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
+  .kv{display:grid;grid-template-columns:130px 1fr;gap:4px 12px;font-size:13px;margin-bottom:10px}
+  .kv b{color:var(--muted);font-weight:600}
+  .brief{white-space:pre-wrap;background:#fafbfc;border:1px solid var(--line);border-radius:6px;padding:8px;max-height:200px;overflow:auto;font-size:13px}
+  .stagehead{margin:14px 0 6px;font-weight:700;font-size:13px}
+  .pop .box{border-top:5px solid var(--brand)} .pop .msg{font-size:15px;line-height:1.45}
+  #toasts{position:fixed;bottom:16px;right:16px;display:flex;flex-direction:column;gap:8px;z-index:30}
+  .toast{background:#1f2933;color:#fff;padding:10px 14px;border-radius:8px;font-size:13px;max-width:340px;box-shadow:0 6px 18px rgba(0,0,0,.2)}
+  .toast.err{background:var(--late)}
+  .loading{padding:40px;text-align:center;color:var(--muted)}
+  @media (max-width:1100px){ .panels{grid-template-columns:1fr} }
+  @media (max-width:700px){
+    .cards{grid-template-columns:repeat(2,1fr)} .kv{grid-template-columns:1fr} header .who{width:100%} .row2{grid-template-columns:1fr}
+    header{padding:8px 12px;gap:8px} header .brand{font-size:15px} header .sync{display:none} #viewbtn{display:none}
+    .wrap{padding:12px} .tab{padding:6px 10px;font-size:13px} .card .n{font-size:18px} .card{padding:10px}
+    .grid .ev{min-width:140px;max-width:150px}
+  }
+  body.mobile .panels{grid-template-columns:1fr}
+  body.mobile .cards{grid-template-columns:repeat(2,1fr)} body.mobile .kv{grid-template-columns:1fr} body.mobile .row2{grid-template-columns:1fr}
+  body.mobile header{padding:8px 12px;gap:8px} body.mobile header .brand{font-size:15px} body.mobile header .who{width:100%} body.mobile header .sync{display:none}
+  body.mobile .wrap{padding:12px} body.mobile .tab{padding:6px 10px;font-size:13px} body.mobile .card .n{font-size:18px} body.mobile .card{padding:10px}
+  body.mobile .grid .ev{min-width:140px;max-width:150px} body.mobile header select{max-width:100%}
+  body.mobile .box{max-width:370px}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+  <span class="brand">CRES · Task Dashboard</span>
+  <span id="testtag"></span>
+  <span class="who" id="who">Loading…</span>
+  <span class="sp"></span>
+  <span class="sync" id="sync"></span>
+  <span id="viewas"></span>
+  <button class="iconbtn" id="viewbtn" onclick="toggleView()" title="Preview how the dashboard looks on a phone">📱 Mobile view</button>
+  <button class="iconbtn" onclick="reopenNotifs()" title="Notifications">🔔<span id="bellc"></span></button>
+  <button class="iconbtn" id="refbtn" onclick="hardRefresh()" title="Refresh from FMS now">⟳</button>
+</header>
+
+<div class="wrap">
+  <div id="errors"></div>
+  <div class="bar" id="tabs"></div>
+  <div class="cards" id="cards"></div>
+  <div class="filters" id="filters"></div>
+  <div id="view"><div class="loading">Loading dashboard…</div></div>
+</div>
+
+</div>
+<div class="modal hidden" id="modal" onclick="if(event.target===this)closeModal()"><div class="box" id="modalBox"></div></div>
+<div class="modal pop hidden" id="pop"><div class="box" id="popBox"></div></div>
+<div id="toasts"></div>
+
+<script>
+const ST = { viewAs:null, boot:null, data:null, tab:null, off:0, ver:0, snooze:{}, popOpen:false,
+             f:{ tstatus:'open', who:'', q:'', phase:'all', fwho:'', fev:'', fstate:'pending', cell:'', fuWhen:'both', fuType:'all', fuWho:'' } };
+const $ = s => document.querySelector(s);
+let TOKEN = '';
+try{ ST.scope = localStorage.getItem('cresScope') || 'all'; }catch(e){ ST.scope = 'all'; }
+// Login is kept only for this tab: closing the tab/link means signing in again
+try{ ST.loginEmail = sessionStorage.getItem('cresEm') || ''; }catch(e){}
+try{ TOKEN = sessionStorage.getItem('cresTok') || ''; }catch(e){}
+try{ localStorage.removeItem('cresTok'); }catch(e){}
+function AUTH(){ return { viewAs: ST.viewAs, token: TOKEN }; }
+const STAGE_COLOR = { L2O:'var(--L2O)', O2D:'var(--O2D)', PE:'var(--PE)' };
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function run(fn, ...args){
+  const url = (window.CRES_CONFIG && window.CRES_CONFIG.API_URL) || '';
+  const fail = (m, e) => { if(/LOGIN_REQUIRED/.test(m)){ showLogin(); } else { toast(m, 'err'); } throw (e || new Error(m)); };
+  if(!/^https:\/\/script\.google\.com\//.test(url)) return Promise.reject(new Error('API_URL missing')).catch(e => fail('App not configured: put the Apps Script /exec link in config.js', e));
+  // text/plain keeps it a "simple" request, so the browser does no CORS preflight
+  return fetch(url, { method:'POST', redirect:'follow', headers:{'Content-Type':'text/plain;charset=utf-8'},
+                      body: JSON.stringify({ fn, args }) })
+    .then(r => { if(!r.ok) throw new Error('Server error ' + r.status); return r.json(); },
+          e => fail(navigator.onLine ? 'Could not reach the server. Try again.' : 'You are offline.', e))
+    .then(j => { if(!j || !j.ok) fail((j && j.error) || 'Unknown error'); return j.data; });
+}
+function toast(msg, kind){
+  const d = document.createElement('div'); d.className = 'toast ' + (kind||''); d.textContent = msg;
+  $('#toasts').appendChild(d); setTimeout(()=>d.remove(), kind==='err'?7000:3500);
+}
+function now(){ return Date.now() + ST.off; }
+function fmt(ms){
+  if(!ms) return '—';
+  const d = new Date(ms);
+  return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',timeZone:'Asia/Kolkata'}) + ', ' +
+         d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kolkata'});
+}
+function fmtShort(ms){ return new Date(ms).toLocaleDateString('en-GB',{day:'2-digit',month:'short',timeZone:'Asia/Kolkata'}); }
+function dayKey(ms){ return new Date(ms).toLocaleDateString('en-GB',{timeZone:'Asia/Kolkata'}); }
+function dur(ms){
+  const m = Math.floor(Math.abs(ms)/60000), d = Math.floor(m/1440), h = Math.floor((m%1440)/60), mm = m%60;
+  return d ? d+'d '+h+'h' : h ? h+'h '+mm+'m' : mm+'m';
+}
+function delayOf(planned, actual, cancelled){
+  if(!planned || cancelled) return {txt:'—', cls:'muted'};
+  const diff = (actual || now()) - planned;
+  if(diff > 0) return {txt:'+'+dur(diff), cls:'late'};
+  return actual ? {txt:'On time', cls:'ok'} : {txt:dur(diff)+' left', cls:'muted'};
+}
+function sCls(s){ return 's-' + String(s||'').toLowerCase().replace(/\s+/g,''); }
+function isOpen(t){ return t.status!=='Done' && t.status!=='Cancelled'; }
+function isLate(t){ return isOpen(t) && t.planned && now() > t.planned; }
+function me(){ return ST.boot.me; }
+function stageLabel(k){ return (ST.boot.stageLabels.find(s=>s.key===k)||{}).label || k; }
+function nameN(s){ return String(s||'').trim().toLowerCase(); }
+
+/* ---------------- boot ---------------- */
+async function init(){
+  const v = ++ST.ver;
+  $('#view').innerHTML = '<div class="loading">Loading dashboard…</div>';
+  try{
+    const b = await run('getBootstrap', AUTH());
+    if(v !== ST.ver) return;
+    ST.boot = b; ST.viewAs = b.me.id; ST.off = b.serverNow - Date.now();
+    renderHeader();
+    await load();
+    clearInterval(ST.pollT); ST.pollT = setInterval(()=>load(false, true), b.poll*1000);
+    clearInterval(ST.tickT); ST.tickT = setInterval(()=>{ if($('#modal').classList.contains('hidden')) render(); }, 60000);
+  }catch(e){
+    const m = (e && e.message) || String(e);
+    if(!/LOGIN_REQUIRED/.test(m)) $('#view').innerHTML = '<div class="empty">'+esc(m)+'</div>';
+    $('#who').textContent = '';
+  }
+}
+async function load(force, quiet){
+  const v = ST.ver;
+  const d = await run('getData', AUTH(), !!force);
+  if(v !== ST.ver) return;
+  ST.data = d; ST.off = d.serverNow - Date.now();
+  $('#sync').textContent = 'FMS synced ' + new Date(d.syncedAt).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kolkata'});
+  if(!(quiet && !$('#modal').classList.contains('hidden'))) render();
+  handleNotifs(d.notifs || []);
+}
+async function hardRefresh(){
+  const b = $('#refbtn'); b.disabled = true;
+  try{ await load(true); toast('Fresh data loaded from FMS and the enquiry form'); } finally{ b.disabled = false; }
+}
+
+function renderHeader(){
+  const m = me();
+  $('#who').innerHTML = '<b>'+esc(m.name)+'</b> · '+esc(m.roleLabel)+' · '+esc(m.id);
+  $('#testtag').innerHTML = ST.boot.test ? '<span class="testtag">TEST MODE</span>' : '';
+  if(ST.boot.pinUser) $('#who').innerHTML += ' · <a href="#" style="color:#fff" onclick="logout();return false">Log out</a>';
+  $('#viewas').innerHTML = ST.boot.test
+    ? 'View as: <select onchange="switchUser(this.value)">' +
+        ST.boot.people.map(p=>'<option value="'+p.id+'" '+(p.id===m.id?'selected':'')+'>'+esc(p.name)+' — '+esc(p.roleLabel)+'</option>').join('') +
+      '</select>'
+    : '';
+}
+// "View as" = sign in as that person: log out and show the login page with their email filled in
+// "View as" (testing): every switch asks for the ADMIN's own PIN again, then opens that person's dashboard
+async function switchUser(id){
+  const p = (ST.boot.people||[]).find(x=>x.id===id) || {};
+  closeModal(); closePop();
+  try{ await run('pinLogout', TOKEN); }catch(e){}
+  TOKEN = ''; try{ sessionStorage.removeItem('cresTok'); }catch(e){}
+  ST.pendingViewAs = id;
+  ST.viewAs = null; ST.tab = null; ST.snooze = {}; ST.f.who=''; ST.f.fwho=''; ST.data = null; ST.boot = null;
+  showLogin('', ST.loginEmail || '', 'Enter YOUR PIN to open ' + (p.name||id) + '\'s dashboard.');
+}
+function goTab(t){ ST.tab = t; render(); }
+
+/* ---------------- render ---------------- */
+// Remember where every table (and the page) was scrolled, so auto-refresh doesn't jump back to the top
+function captureScroll(){
+  return { y: window.scrollY,
+           els: [...document.querySelectorAll('#view .scroll, #view .tablewrap')].map(e=>[e.scrollTop, e.scrollLeft]) };
+}
+function restoreScroll(st){
+  if(!st) return;
+  [...document.querySelectorAll('#view .scroll, #view .tablewrap')].forEach((e,i)=>{
+    if(st.els[i]){ e.scrollTop = st.els[i][0]; e.scrollLeft = st.els[i][1]; }
+  });
+  window.scrollTo(0, st.y);
+}
+
+function render(){
+  if(!ST.data) return;
+  const keep = ST.renderedTab === ST.tab ? captureScroll() : null;
+  const minH = document.body.offsetHeight;                 // stop the page shrinking mid-redraw
+  document.body.style.minHeight = minH + 'px';
+  try{ renderInner(); } finally{
+    restoreScroll(keep);
+    ST.renderedTab = ST.tab;
+    document.body.style.minHeight = '';
+  }
+}
+function renderInner(){
+  const d = ST.data;
+  $('#errors').innerHTML = (d.errors||[]).length
+    ? '<div class="errors"><b>Source read error:</b> '+d.errors.map(esc).join(' · ')+'</div>' : '';
+  const tabs = [['dash','Dashboard'],['tracker','Event Tracker'],['tasks','One-off Tasks'],['fms', me().seeAll?'FMS Steps':'My FMS Steps']];
+  if(me().isPC) tabs.unshift(['follow','Follow-ups']);
+  if(!tabs.some(t=>t[0]===ST.tab)) ST.tab = tabs[0][0];
+  let h = tabs.map(t=>'<button class="tab '+(t[0]===ST.tab?'on':'')+'" onclick="goTab(\''+t[0]+'\')">'+t[1]+'</button>').join('');
+  h += '<span style="flex:1"></span>';
+  if(me().mineToggle && ST.tab!=='follow'){
+    h += '<span class="scope"><button class="'+(ST.scope!=='mine'?'on':'')+'" onclick="setScope(\'all\')">All</button>' +
+         '<button class="'+(ST.scope==='mine'?'on':'')+'" onclick="setScope(\'mine\')">Mine</button></span>';
+  }
+  if(me().canAssign) h += '<button class="btn" onclick="taskModal()">+ New</button>';
+  $('#tabs').innerHTML = h;
+  renderCards();
+  ({dash:renderDash, tracker:renderTracker, tasks:renderTasks, fms:renderFms, follow:renderFollow})[ST.tab]();
+}
+
+/* ---------------- All / Mine scope (for people who can see everything) ---------------- */
+function scopeMine(){ return !!me().mineToggle && ST.scope==='mine'; }
+function mineOnly(){ return !me().seeAll || scopeMine(); }
+function isMineEvent(e){
+  const n = nameN(me().name);
+  if(nameN(e.lead)===n || (e.alloc && nameN(e.alloc.toName)===n)) return true;
+  return ['L2O','O2D','PE'].some(k=>(e.cells[k]||[]).some(x=>nameN(x[4])===n));
+}
+// Dashboard tables: everyone sees all confirmed + ongoing events; "Mine" narrows them
+function EVS(){ return scopeMine() ? ST.data.events.filter(isMineEvent) : ST.data.events; }
+// Event Tracker / FMS steps: people who don't see everything only get their own events
+function trackEVS(){ return mineOnly() ? ST.data.events.filter(isMineEvent) : ST.data.events; }
+function setScope(s){ ST.scope = s; try{ localStorage.setItem('cresScope', s); }catch(e){} render(); }
+
+function pendingSteps(ignoreScope){
+  const out = [];
+  ST.data.events.forEach(ev=>{
+    ['L2O','O2D','PE'].forEach(k=>{
+      const cells = ev.cells[k]; if(!cells) return;
+      cells.forEach((x,i)=>{
+        if(x[0]!=='pending') return;
+        out.push({ ev, stage:k, stepNo:i, kind:ST.data.steps[k][i].kind, step:ST.data.steps[k][i].name, planned:x[1], doer:x[4] });
+      });
+    });
+  });
+  return (me().seeAll && (ignoreScope || !mineOnly())) ? out : out.filter(p=>nameN(p.doer)===nameN(me().name));
+}
+
+function renderCards(){
+  const evs = EVS(), ps = pendingSteps(), tasks = myTaskList();
+  const ong = evs.filter(e=>e.phase==='Ongoing').length;
+  const conf = evs.filter(e=>e.phase==='Confirmed').length;
+  $('#cards').innerHTML =
+    card(ong,'Ongoing enquiries','') + card(conf,'Confirmed events','ok') +
+    card(ps.filter(p=>p.planned < now()).length, me().seeAll?'FMS steps overdue':'My FMS steps overdue','late') +
+    card(tasks.filter(isOpen).length + ' / ' + tasks.filter(isLate).length, 'Open / overdue tasks','');
+}
+function card(n,l,c){ return '<div class="card '+c+'"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>'; }
+function tags(e){
+  let nw = '';
+  if(e.isNew && e.phase==='Ongoing'){
+    const age = e.newSince ? now() - e.newSince : 0;
+    nw = age > 864e5*1 ? '<span class="tag new stale" title="No action for over 24h (Client Briefing not done)">NEW · '+dur(age).split(' ')[0]+'</span>'
+                       : '<span class="tag new" title="Client Briefing not done yet">NEW</span>';
+  }
+  return nw;            // only the NEW tag (ongoing enquiries) — no other labels next to event names
+}
+function leadCell(e){ return e.lead ? esc(e.lead) : '<span class="muted">—</span>'; }
+
+/* ---------------- dashboard (3 panels, as per format) ---------------- */
+function renderDash(){
+  $('#filters').innerHTML = '';
+  const evs = EVS();
+  const conf = evs.filter(e=>e.phase==='Confirmed');
+  const ong  = evs.filter(e=>e.phase==='Ongoing');
+  const tasks = myTaskList().filter(isOpen).sort((a,b)=>(a.planned||0)-(b.planned||0));
+
+  const p1 = panel('Confirmed Events', 'Order to Delivery FMS', 'var(--O2D)',
+    '<table><thead><tr><th>Event ID</th><th>Company</th><th>Client</th><th>Event Date</th><th>Allocated to</th></tr></thead><tbody>' +
+      conf.map(e=>'<tr class="click" onclick="eventModal(\''+e.id+'\')"><td class="mono">'+e.id+'</td><td><b>'+esc(e.company)+'</b>'+
+        '</td><td>'+esc(e.client)+'</td><td>'+esc(e.eventDate||'—')+'</td><td>'+leadCell(e)+'</td></tr>').join('') +
+      '</tbody></table>');
+
+  const p2 = panel('Ongoing Enquiries', 'Lead to Order FMS', 'var(--L2O)',
+    '<table><thead><tr><th>Client</th><th>Company</th><th>Approx Event Date</th></tr></thead><tbody>' +
+      ong.map(e=>'<tr class="click" onclick="eventModal(\''+e.id+'\')"><td>'+esc(e.client)+'</td><td><b>'+esc(e.company)+'</b>'+
+        tags(e)+'<div class="mono">'+e.id+(e.lead?' · '+esc(e.lead):'')+'</div></td><td>'+esc(e.eventDate||'—')+'</td></tr>').join('') +
+      '</tbody></table>');
+
+  const p3 = panel('One-off Tasks', 'open', 'var(--brand)',
+    '<table><thead><tr><th>Task ID</th><th>Task</th><th>Planned</th><th>Delay</th><th>Allocated to</th></tr></thead><tbody>' +
+      tasks.map(t=>{ const d = delayOf(t.planned,t.actual);
+        return '<tr class="click" onclick="goTab(\'tasks\')"><td class="mono">'+t.id+'</td><td><b>'+esc(t.title)+'</b><div class="small">by '+esc(t.byName)+'</div></td><td class="small">'+fmt(t.planned)+'</td><td class="'+d.cls+'">'+d.txt+'</td><td>'+esc(t.toName)+'</td></tr>'; }).join('') +
+      '</tbody></table>');
+
+  let p5 = '';
+  if(ST.data.showPending){
+    const pf = (ST.data.pendingFms || []).filter(a=>!(mineOnly() && me().seeAll) || nameN(a.toName)===nameN(me().name));
+    const pend = pf.filter(a=>!a.updated).length;
+    p5 = panel('Enquiry Allocations', pend+' pending FMS update', '#b45309',
+      '<table><thead><tr><th>Event ID</th><th>Company</th><th>Allocated to</th><th>FMS</th><th>FMS Doer now</th><th>By</th><th>When</th></tr></thead><tbody>' +
+        pf.map(a=>'<tr class="click" onclick="eventModal(\''+a.id+'\')"><td class="mono">'+a.id+'</td><td><b>'+esc(a.company)+'</b></td><td>'+esc(a.toName)+'</td>' +
+          '<td>'+(a.updated?'<span class="pill s-done">Updated</span>':'<span class="pill" style="background:var(--lateBg);color:var(--late)">Not updated</span>')+'</td>' +
+          '<td>'+(a.fmsDoer?esc(a.fmsDoer):'<span class="muted">—</span>')+'</td><td>'+esc(a.byName)+'</td><td class="small">'+fmt(a.at)+'</td></tr>').join('') +
+        '</tbody></table>');
+  }
+
+  $('#view').innerHTML = '<div class="panels"><div class="col">'+p1+'</div><div class="col">'+p2+p5+'</div><div class="col">'+p3+'</div></div>';
+}
+function panel(title, sub, color, body){
+  return '<div class="panel"><h4 style="background:'+color+'">'+title+'<small>'+sub+'</small></h4><div class="scroll">'+body+'</div></div>';
+}
+
+/* ---------------- event tracker grid (FMS style) ---------------- */
+function cellState(x){
+  if(!x) return '';
+  if(x[0]==='done' || x[0]==='no') return x[0];
+  if(x[0]==='pending'){ const n = now(); return x[1] < n ? 'late' : dayKey(x[1])===dayKey(n) ? 'due' : 'up'; }
+  return '';
+}
+// Active (not yet synced) dashboard mark for one FMS step
+function markFor(evId, stage, i){
+  return (ST.data.marks||[]).find(m=>!m.synced && m.eventId===evId && m.stage===stage && m.stepNo===i);
+}
+function cellHtml(x, stepName, stage, ev, i){
+  if(!x) return '';
+  const mk = (ev && i!=null && x[0]==='pending') ? markFor(ev.id, stage, i) : null;
+  if(mk) return '<span class="c mk" title="'+esc(stepName+'\nMarked '+mk.value+' by '+mk.byName+' at '+fmt(mk.at)+' — waiting for the FMS update')+'">✓ '+esc(mk.value)+'*</span>';
+  const [state, planned, actual, status, doer] = x;
+  const tip = esc(stepName+'\nPlanned: '+fmt(planned)+'\nActual: '+fmt(actual)+'\nStatus: '+(status||'—')+'\nDoer: '+(doer||'—'));
+  if(state==='done') return '<span class="c done" title="'+tip+'">'+esc(status||'Done')+'</span>';
+  if(state==='no')   return '<span class="c no" title="'+tip+'">No</span>';
+  if(state==='pending'){
+    const n = now(), cls = planned < n ? 'late' : dayKey(planned)===dayKey(n) ? 'due' : 'up';
+    return '<span class="c '+cls+'" title="'+tip+'">'+(cls==='late' ? '+'+dur(n-planned) : fmtShort(planned))+'</span>';
+  }
+  return '';
+}
+function renderTracker(){
+  const f = ST.f;
+  $('#filters').innerHTML =
+    '<select onchange="ST.f.phase=this.value;render()">' +
+      [['all','All events'],['Ongoing','Ongoing enquiries'],['Confirmed','Confirmed events']]
+        .map(o=>'<option value="'+o[0]+'" '+(f.phase===o[0]?'selected':'')+'>'+o[1]+'</option>').join('') + '</select>' +
+    '<input placeholder="Search company / EVT…" value="'+esc(f.q)+'" oninput="ST.f.q=this.value;renderTrackerTable()">';
+  renderTrackerTable();
+}
+function renderTrackerTable(){
+  const f = ST.f, q = f.q.trim().toLowerCase(), steps = ST.data.steps;
+  const evs = trackEVS().filter(e=>{
+    if(f.phase!=='all' && e.phase!==f.phase) return false;
+    if(q && !(e.company+' '+e.id+' '+e.client).toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const stages = ['L2O','O2D','PE'];
+  const want = f.cell || '';
+  const cols = [];                                    // [stage, stepIndex] that remain visible
+  stages.forEach(k=>steps[k].forEach((s,i)=>{
+    if(!want || evs.some(e=>e.cells[k] && cellState(e.cells[k][i])===want)) cols.push([k,i]);
+  }));
+  const rows = want ? evs.filter(e=>cols.some(([k,i])=>e.cells[k] && cellState(e.cells[k][i])===want)) : evs;
+  const chip = (st,label)=>'<span class="c '+(st||'all')+' chipf'+(want===st?' sel':'')+'" onclick="ST.f.cell=\''+st+'\';renderTrackerTable()">'+label+'</span>';
+  let h = '<div class="legend">'+chip('','All')+chip('done','Done')+chip('late','+delay')+chip('due','due today')+chip('up','upcoming')+chip('no','No') +
+    ' · click a colour to show only those steps · hover a cell for details · click an event for the full view</div>';
+  h += '<div class="tablewrap" style="max-height:72vh"><table class="grid"><thead><tr><th class="ev" rowspan="2" style="top:0">Event</th>' +
+    stages.map(k=>{ const n = cols.filter(c=>c[0]===k).length;
+      return n ? '<th colspan="'+n+'" style="background:'+STAGE_COLOR[k]+'">'+esc(stageLabel(k))+'</th>' : ''; }).join('') + '</tr><tr>' +
+    cols.map(([k,i])=>'<th>'+esc(steps[k][i].name)+'</th>').join('') + '</tr></thead><tbody>';
+  if(!rows.length) h += '<tr><td class="ev" colspan="99"><div class="empty">'+(want?'No steps in this state.':'No events.')+'</div></td></tr>';
+  rows.forEach(e=>{
+    h += '<tr><td class="ev"><span class="link click" style="font-weight:700;color:var(--brand);cursor:pointer" onclick="eventModal(\''+e.id+'\')">'+esc(e.company||'—')+'</span>' +
+      tags(e) +
+      '<div class="mono">'+e.id+' · '+(e.lead?esc(e.lead):'—')+'</div></td>';
+    cols.forEach(([k,i])=>{
+      const x = e.cells[k] ? e.cells[k][i] : null;
+      h += '<td>'+(x && (!want || cellState(x)===want) ? cellHtml(x, steps[k][i].name, k, e, i) : '')+'</td>';
+    });
+    h += '</tr>';
+  });
+  $('#view').innerHTML = h + '</tbody></table></div>';
+}
+
+/* ---------------- completed event detail (enquiry form, up to the brief) ---------------- */
+function completedModal(id){
+  const e = (ST.data.completed||[]).find(x=>x.id===id); if(!e) return;
+  const F = e.form || {};
+  openModal('<h3>'+esc(e.company||'—')+' <span class="mono">'+e.id+'</span></h3>' +
+    '<div class="kv">'+kv('Client',e.client)+kv('Event date',e.eventDate)+kv('Status','Done')+
+      kv('Phone',F.phone)+kv('Email',F.email)+kv('Location',F.location)+kv('Event type',F.eventType)+kv('Service',F.service)+
+      kv('Captured by',F.capturedBy)+kv('Enquiry date',F.enquiryDate)+kv('Form remark',F.remark)+'</div>' +
+    '<b class="small">EVENT BRIEF</b><div class="brief">'+esc(F.brief||'—')+'</div>' +
+    '<div class="actions"><button class="btn ghost" onclick="closeModal()">Close</button></div>', true);
+}
+
+/* ---------------- event detail modal ---------------- */
+function eventModal(id){
+  const e = ST.data.events.find(x=>x.id===id); if(!e) return;
+  const F = e.form || {};
+  let h = '<h3>'+esc(e.company||'—')+' <span class="mono">'+e.id+'</span></h3>' +
+    '<div class="kv">'+kv('Client',e.client)+kv('Event date',e.eventDate)+kv('Stage',e.phase)+kv('Lead (FMS Doer)',e.lead||'—')+(e.alloc?kv('Allocated in dashboard',e.alloc.toName+' by '+e.alloc.byName+', '+fmt(e.alloc.at)):'')+
+    (e.form ? kv('Phone',F.phone)+kv('Email',F.email)+kv('Location',F.location)+kv('Event type',F.eventType)+kv('Service',F.service)+
+              kv('Captured by',F.capturedBy)+kv('Enquiry date',F.enquiryDate)+kv('Form remark',F.remark) : '') + '</div>';
+  if(e.form) h += '<b class="small">EVENT BRIEF</b><div class="brief">'+esc(F.brief||'—')+'</div>';
+  ['L2O','O2D','PE'].forEach(k=>{
+    const cells = e.cells[k]; if(!cells) return;
+    h += '<div class="stagehead" style="color:'+STAGE_COLOR[k]+'">'+esc(stageLabel(k))+'</div>' +
+      '<div class="tablewrap"><table><thead><tr><th>Step</th><th>Planned</th><th>Actual</th><th>Status</th><th>Delay</th><th>Doer</th></tr></thead><tbody>';
+    ST.data.steps[k].forEach((s,i)=>{
+      const x = cells[i]; if(!x || x[0]==='na') return;
+      const d = delayOf(x[1], x[2]);
+      h += '<tr><td>'+esc(s.name)+'</td><td class="small">'+fmt(x[1])+'</td><td class="small">'+fmt(x[2])+'</td><td>'+cellHtml(x,s.name,k,e,i)+'</td><td class="'+d.cls+'">'+d.txt+'</td><td>'+esc(x[4]||'—')+'</td></tr>';
+    });
+    h += '</tbody></table></div>';
+  });
+  h += '<div class="actions"><button class="btn ghost" onclick="closeModal()">Close</button></div>';
+  openModal(h, true);
+}
+function kv(k,v){ return '<b>'+k+'</b><span>'+esc(v||'—')+'</span>'; }
+
+/* ---------------- FMS steps list ---------------- */
+function renderFms(){
+  const f = ST.f, all = me().seeAll;
+  const doers = [...new Set(pendingSteps().map(p=>p.doer||'(blank)'))].sort();
+  // events that have pending steps (latest Event ID first)
+  const evMap = {};
+  pendingSteps().forEach(p=>{ evMap[p.ev.id] = p.ev; });
+  const evOpts = Object.values(evMap).sort((a,b)=>b.num-a.num);
+  if(f.fev && !evMap[f.fev]) f.fev = '';
+  $('#filters').innerHTML =
+    '<select onchange="ST.f.fstate=this.value;render()">' +
+      [['pending','All pending'],['late','Overdue only'],['today','Due today']].map(o=>'<option value="'+o[0]+'" '+(f.fstate===o[0]?'selected':'')+'>'+o[1]+'</option>').join('') + '</select>' +
+    (all ? '<select onchange="ST.f.fwho=this.value;render()"><option value="">All doers</option>' +
+      doers.map(d=>'<option '+(f.fwho===d?'selected':'')+'>'+esc(d)+'</option>').join('') + '</select>' : '') +
+    '<select onchange="ST.f.fev=this.value;render()" style="max-width:320px"><option value="">All events</option>' +
+      evOpts.map(e=>'<option value="'+e.id+'" '+(f.fev===e.id?'selected':'')+'>'+esc(e.company+' · '+e.id)+'</option>').join('') + '</select>';
+  const n = now();
+  const list = pendingSteps().filter(p=>{
+    if(f.fstate==='late' && !(p.planned < n)) return false;
+    if(f.fstate==='today' && dayKey(p.planned)!==dayKey(n)) return false;
+    if(all && f.fwho && (p.doer||'(blank)')!==f.fwho) return false;
+    if(f.fev && p.ev.id!==f.fev) return false;
+    return true;
+  }).sort((a,b)=>a.planned-b.planned);
+  if(!list.length){ $('#view').innerHTML = '<div class="tablewrap"><div class="empty">No pending FMS steps.</div></div>'; return; }
+  $('#view').innerHTML = '<div class="small" style="margin-bottom:6px">Mark a step <b>Done</b> / <b>Yes</b> / <b>No</b> here — Ashwini gets notified and updates the FMS. The dashboard never writes to the FMS.</div>' +
+    '<div class="tablewrap"><table><thead><tr><th>Event</th><th>Stage</th><th>Step</th><th>Doer</th><th>Planned</th><th>Delay</th><th>Action</th></tr></thead><tbody>' +
+    list.map(p=>{ const d = delayOf(p.planned);
+      return '<tr class="click" onclick="eventModal(\''+p.ev.id+'\')"><td><b>'+esc(p.ev.company)+'</b><div class="mono">'+p.ev.id+'</div></td>' +
+        '<td><span class="pill" style="color:'+STAGE_COLOR[p.stage]+'">'+esc(stageLabel(p.stage))+'</span></td><td>'+esc(p.step)+'</td>' +
+        '<td>'+esc(p.doer||'—')+'</td><td class="small">'+fmt(p.planned)+'</td><td class="'+d.cls+'">'+d.txt+'</td>' +
+        '<td onclick="event.stopPropagation()" style="white-space:nowrap">'+stepActions(p)+'</td></tr>'; }).join('') +
+    '</tbody></table></div>';
+}
+function stepActions(p){
+  const mk = markFor(p.ev.id, p.stage, p.stepNo);
+  if(mk){
+    const canUndo = mk.by===me().id || me().owner || me().isPC;
+    return '<span class="c mk">✓ '+esc(mk.value)+'</span><div class="small">by '+esc(mk.byName)+' · '+fmt(mk.at)+'<br>waiting for FMS update</div>' +
+      (canUndo ? '<button class="btn ghost sm" style="margin-top:4px" onclick="doUndo(\''+mk.id+'\')">Undo</button>' : '');
+  }
+  const vals = p.kind==='yn' ? ['Yes','No'] : ['Done'];
+  return vals.map(v=>'<button class="btn sm'+(v==='No'?' ghost':'')+'" style="margin-right:4px" onclick="markModal(\''+p.ev.id+'\',\''+p.stage+'\','+p.stepNo+',\''+v+'\')">'+v+'</button>').join('');
+}
+function markModal(evId, stage, i, val){
+  const e = ST.data.events.find(x=>x.id===evId); const step = ST.data.steps[stage][i];
+  openModal('<h3>Mark step as '+esc(val)+'</h3>' +
+    '<div class="kv">'+kv('Event', (e?e.company:'')+' ('+evId+')')+kv('Stage', stageLabel(stage))+kv('Step', step.name)+kv('Value', val)+'</div>' +
+    '<label>Note for Ashwini (optional)</label><textarea id="m_note" placeholder="e.g. Costing sent to client on mail"></textarea>' +
+    '<div class="small" style="margin-top:6px">Ashwini gets a popup and updates the FMS. You can undo until she does.</div>' +
+    '<div class="actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="m_go" onclick="doMark(\''+evId+'\',\''+stage+'\','+i+',\''+val+'\')">Mark '+esc(val)+'</button></div>');
+  setTimeout(()=>{ const t = $('#m_note'); if(t) t.focus(); }, 50);
+}
+async function doMark(evId, stage, i, val){
+  $('#m_go').disabled = true;
+  try{ await run('markStep', AUTH(), evId, stage, i, val, $('#m_note').value); closeModal(); toast('Marked '+val+' — Ashwini notified'); await load(); }
+  catch(e){ const b = $('#m_go'); if(b) b.disabled = false; }
+}
+async function doUndo(markId){
+  if(!confirm('Undo this mark? Ashwini will be told to ignore it.')) return;
+  try{ await run('undoStep', AUTH(), markId); toast('Mark undone'); await load(); }catch(e){}
+}
+
+/* ---------------- PC follow-ups: everyone's overdue + due-today items ---------------- */
+function followItems(){
+  const n = now(), today = dayKey(n), out = [];
+  const when = p => !p ? '' : p < n ? 'late' : dayKey(p)===today ? 'today' : '';
+  ST.data.tasks.filter(isOpen).forEach(t=>{
+    const w = when(t.planned); if(!w) return;
+    out.push({ who:t.toName||'—', type:'task', w, planned:t.planned, title:t.title, sub:'One-off task '+t.id+' · by '+t.byName, status:t.status, ev:null });
+  });
+  pendingSteps(true).forEach(p=>{
+    const w = when(p.planned); if(!w) return;
+    const left = p.doer && (ST.boot.inactiveNames||[]).includes(nameN(p.doer));
+    out.push({ who:p.doer ? p.doer+(left?' (left company — reassign in FMS)':'') : '(No doer in FMS)', type:'fms', w, planned:p.planned, title:p.step, sub:stageLabel(p.stage)+' · '+p.ev.company+' ('+p.ev.id+')', status:'', ev:p.ev.id });
+  });
+  return out;
+}
+function renderFollow(){
+  const f = ST.f, all = followItems();
+  const people = [...new Set(all.map(x=>x.who))].sort();
+  const late = all.filter(x=>x.w==='late'), tod = all.filter(x=>x.w==='today');
+  $('#cards').innerHTML = card(late.length,'Overdue (all people)','late') + card(tod.length,'Due today','') +
+    card(new Set(late.map(x=>x.who)).size,'People with overdue items','late') + card(all.filter(x=>x.type==='task').length,'One-off tasks to chase','');
+  const opt2 = (v,l,cur)=>'<option value="'+v+'" '+(cur===v?'selected':'')+'>'+l+'</option>';
+  $('#filters').innerHTML =
+    '<select onchange="ST.f.fuWhen=this.value;render()">'+opt2('both','Overdue + due today',f.fuWhen)+opt2('late','Overdue only',f.fuWhen)+opt2('today','Due today only',f.fuWhen)+'</select>' +
+    '<select onchange="ST.f.fuType=this.value;render()">'+opt2('all','Tasks + FMS steps',f.fuType)+opt2('task','One-off tasks only',f.fuType)+opt2('fms','FMS steps only',f.fuType)+'</select>' +
+    '<select onchange="ST.f.fuWho=this.value;render()"><option value="">Everyone</option>'+people.map(p=>opt2(p,esc(p),f.fuWho)).join('')+'</select>';
+  const list = all.filter(x=>(f.fuWhen==='both'||x.w===f.fuWhen) && (f.fuType==='all'||x.type===f.fuType) && (!f.fuWho||x.who===f.fuWho));
+  const mks = (ST.data.marks||[]).filter(m=>!m.synced).sort((a,b)=>a.at-b.at);
+  const marksHtml = '<div class="panel" style="margin-bottom:14px"><h4 style="background:#1d5fa8">Marked in dashboard · update the FMS<small>'+mks.length+' pending</small></h4>' +
+    '<div class="tablewrap" style="border:0;border-radius:0;max-height:300px"><table><thead><tr><th>Event</th><th>Stage</th><th>Step</th><th>Marked</th><th>By</th><th>Marked at</th><th>Note</th><th></th></tr></thead><tbody>' +
+    (mks.length ? mks.map(m=>'<tr class="click" onclick="eventModal(\''+m.eventId+'\')"><td><b>'+esc(m.company)+'</b><div class="mono">'+m.eventId+'</div></td>' +
+      '<td><span class="pill" style="color:'+STAGE_COLOR[m.stage]+'">'+esc(stageLabel(m.stage))+'</span></td><td>'+esc(m.step)+'</td>' +
+      '<td><span class="c mk">'+esc(m.value)+'</span></td><td>'+esc(m.byName)+'</td><td class="small">'+fmt(m.at)+'</td><td class="small">'+esc(m.note||'—')+'</td>' +
+      '<td onclick="event.stopPropagation()"><button class="btn ghost sm" onclick="doUndo(\''+m.id+'\')">Undo</button></td></tr>').join('')
+      : '<tr><td colspan="8" class="small">Nothing to update — all marks are in the FMS.</td></tr>') +
+    '</tbody></table></div><div class="small" style="padding:6px 12px">An entry disappears by itself once the FMS shows the step as Done / Yes / No.</div></div>';
+  if(!list.length){ $('#view').innerHTML = marksHtml + '<div class="tablewrap"><div class="empty">Nothing overdue or due today. 🎉</div></div>'; return; }
+  const groups = {};
+  list.forEach(x=>{ (groups[x.who] = groups[x.who] || []).push(x); });
+  const NOD = '(No doer in FMS)';
+  const order = Object.keys(groups).sort((a,b)=>{
+    if(a===NOD || b===NOD) return a===NOD ? 1 : -1;      // unassigned FMS steps always last
+    const la = groups[a].filter(x=>x.w==='late').length, lb = groups[b].filter(x=>x.w==='late').length;
+    return lb-la || groups[b].length-groups[a].length || a.localeCompare(b);
+  });
+  const n = now();
+  $('#view').innerHTML = marksHtml + '<div class="small" style="margin-bottom:8px">Everyone\'s overdue and due-today items, grouped by person — for follow-up calls. Read-only.</div>' +
+    order.map(who=>{
+      const items = groups[who].sort((a,b)=>a.planned-b.planned);
+      const nl = items.filter(x=>x.w==='late').length, nt = items.length-nl;
+      return '<div class="panel" style="margin-bottom:12px"><h4 style="background:var(--brand)">'+esc(who)+
+        '<small>'+(nl?nl+' overdue':'')+(nl&&nt?' · ':'')+(nt?nt+' due today':'')+'</small></h4>' +
+        '<div class="tablewrap" style="border:0;border-radius:0;max-height:300px"><table><thead><tr><th>Type</th><th>Item</th><th>Planned</th><th>Delay / Due</th><th>Status</th></tr></thead><tbody>' +
+        items.map(x=>'<tr'+(x.ev?' class="click" onclick="eventModal(\''+x.ev+'\')"':'')+'>' +
+          '<td><span class="pill" style="'+(x.type==='fms'?'color:var(--L2O)':'')+'">'+(x.type==='fms'?'FMS step':'Task')+'</span></td>' +
+          '<td><b>'+esc(x.title)+'</b><div class="small">'+esc(x.sub)+'</div></td>' +
+          '<td class="small">'+fmt(x.planned)+'</td>' +
+          '<td class="'+(x.w==='late'?'late':'')+'">'+(x.w==='late'?'+'+dur(n-x.planned):'due '+new Date(x.planned).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kolkata'}))+'</td>' +
+          '<td>'+(x.status?'<span class="pill '+sCls(x.status)+'">'+esc(x.status)+'</span>':'<span class="small">in FMS</span>')+'</td></tr>').join('') +
+        '</tbody></table></div></div>';
+    }).join('');
+}
+
+/* ---------------- one-off tasks ---------------- */
+function myTaskList(){ const id = me().id; return mineOnly() && me().seeAll ? ST.data.tasks.filter(t=>t.to===id || t.by===id) : ST.data.tasks; }
+function renderTasks(){
+  const f = ST.f, m = me();
+  let fh = '<select onchange="ST.f.tstatus=this.value;render()">' +
+    [['open','Open (not done)'],['late','Overdue'],['all','All statuses']].concat(ST.boot.statuses.map(s=>[s,s]))
+      .map(o=>'<option value="'+o[0]+'" '+(f.tstatus===o[0]?'selected':'')+'>'+o[1]+'</option>').join('') + '</select>';
+  fh += '<select onchange="ST.f.who=this.value;render()"><option value="">'+(m.owner?'Everyone':'Mine + assigned by me')+'</option>' +
+    (m.owner ? ST.boot.people.map(p=>'<option value="'+p.id+'" '+(f.who===p.id?'selected':'')+'>'+esc(p.name)+'</option>').join('')
+             : '<option value="mine" '+(f.who==='mine'?'selected':'')+'>Assigned to me</option><option value="byme" '+(f.who==='byme'?'selected':'')+'>Assigned by me</option>') + '</select>';
+  fh += '<input placeholder="Search task…" value="'+esc(f.q)+'" oninput="ST.f.q=this.value;renderTasksTable()">';
+  $('#filters').innerHTML = fh;
+  renderTasksTable();
+}
+function renderTasksTable(){
+  const f = ST.f, q = f.q.trim().toLowerCase(), id = me().id;
+  const list = myTaskList().filter(t=>{
+    if(f.tstatus==='open' && !isOpen(t)) return false;
+    if(f.tstatus==='late' && !isLate(t)) return false;
+    if(!['open','late','all'].includes(f.tstatus) && t.status!==f.tstatus) return false;
+    if(f.who==='mine' && t.to!==id) return false;
+    if(f.who==='byme' && t.by!==id) return false;
+    if(f.who && !['mine','byme'].includes(f.who) && t.to!==f.who && t.by!==f.who) return false;
+    if(q && !(t.title+' '+t.id+' '+t.toName+' '+t.byName).toLowerCase().includes(q)) return false;
+    return true;
+  }).sort((a,b)=>(a.planned||0)-(b.planned||0));
+  if(!list.length){ $('#view').innerHTML = '<div class="tablewrap"><div class="empty">No tasks.</div></div>'; return; }
+  let h = '<div class="tablewrap"><table><thead><tr><th>Task ID</th><th>Task</th><th>Allocated to</th><th>Allocated by</th><th>TAT</th><th>Planned</th><th>Actual</th><th>Delay</th><th>Status</th><th></th></tr></thead><tbody>';
+  list.forEach(t=>{
+    const d = delayOf(t.planned, t.actual, t.status==='Cancelled');
+    h += '<tr><td class="mono">'+esc(t.id)+'</td>' +
+      '<td><b>'+esc(t.title)+'</b>'+(t.desc?'<div class="small">'+esc(t.desc)+'</div>':'')+(t.remark?'<div class="small">📝 '+esc(t.remark)+'</div>':'')+'</td>' +
+      '<td>'+esc(t.toName)+'</td><td>'+esc(t.byName)+'</td><td class="small">'+esc(t.tatValue)+' '+esc(t.tatUnit)+'</td>' +
+      '<td class="small">'+fmt(t.planned)+'</td><td class="small">'+fmt(t.actual)+'</td><td class="'+d.cls+'">'+d.txt+'</td>' +
+      '<td>'+statusCell(t)+'</td><td>'+(t.canManage?'<button class="btn ghost sm" onclick="editModal(\''+t.id+'\')">Edit</button>':'')+'</td></tr>';
+  });
+  $('#view').innerHTML = h + '</tbody></table></div>';
+}
+function statusCell(t){
+  if(!t.canStatus) return '<span class="pill '+sCls(t.status)+'">'+esc(t.status)+'</span>';
+  const opts = ST.boot.statuses.filter(s=>s!=='Cancelled' || t.canManage || t.status==='Cancelled');
+  return '<select class="st '+sCls(t.status)+'" onchange="setStatus(\''+t.id+'\',this)">' +
+    opts.map(s=>'<option '+(s===t.status?'selected':'')+'>'+s+'</option>').join('') + '</select>';
+}
+async function setStatus(id, el){
+  const val = el.value, t = ST.data.tasks.find(x=>x.id===id);
+  if(val==='Cancelled' && !confirm('Cancel this task?')){ el.value = t.status; return; }
+  el.disabled = true;
+  try{ await run('updateStatus', AUTH(), id, val); toast(id+' → '+val); await load(); }
+  catch(e){ el.value = t.status; el.disabled = false; }
+}
+
+/* ---------------- modals ---------------- */
+function openModal(html, wide){ $('#modalBox').className = 'box' + (wide?' wide':''); $('#modalBox').innerHTML = html; $('#modal').classList.remove('hidden'); }
+function closeModal(){ $('#modal').classList.add('hidden'); }
+function tatFields(v,u){
+  return '<div class="row2"><div><label>TAT</label><input id="m_tv" type="number" min="0.5" step="0.5" value="'+esc(v||1)+'"></div>' +
+    '<div><label>Unit</label><select id="m_tu">'+ST.boot.units.map(x=>'<option '+(x===(u||'Days')?'selected':'')+'>'+x+'</option>').join('')+'</select></div></div>';
+}
+function assignable(){ const m = me(); return ST.boot.people.filter(p=>p.id!==m.id && (m.owner || !p.owner)); }
+function opt(p, sel){ return '<option value="'+p.id+'" '+(p.id===sel?'selected':'')+'>'+esc(p.name)+' — '+esc(p.roleLabel)+'</option>'; }
+
+function taskModal(type){
+  const m = me();
+  type = type || 'task';
+  if(!m.owner) type = 'task';
+  const sel = m.owner
+    ? '<div class="typesel"><button class="'+(type==='task'?'on':'')+'" onclick="taskModal(\'task\')">One-off Task</button>' +
+      '<button class="'+(type==='enq'?'on':'')+'" onclick="taskModal(\'enq\')">Allocate Enquiry</button></div>'
+    : '';
+  if(type==='enq'){
+    const list = ST.data.allocatable || [];
+    const ppl = ST.boot.allocTargets || [];
+    openModal('<h3>Allocate enquiry</h3>' + sel +
+      (list.length
+        ? '<label>Enquiry</label><select id="m_ev">'+list.map(e=>'<option value="'+e.id+'">'+esc(e.id+' · '+e.company+(e.client?' ('+e.client+')':'')+
+            (e.allocName?' — allocated: '+e.allocName:'')+(e.lead?' — FMS: '+e.lead:''))+'</option>').join('')+'</select>' +
+          '<label>Allocate to</label><select id="m_to">'+ppl.map(p=>'<option value="'+p.id+'">'+esc(p.name)+'</option>').join('')+'</select>' +
+          '<label>Note (optional)</label><input id="m_re" placeholder="e.g. Client prefers a call after 4 pm">' +
+          '<div class="small" style="margin-top:6px">The person gets a popup. Update the Doer in the FMS manually — the dashboard reads it from there.</div>'
+        : '<div class="empty">No new ongoing enquiries to allocate.</div>') +
+      '<div class="actions"><button class="btn ghost" onclick="closeModal()">Cancel</button>' +
+        (list.length?'<button class="btn" id="m_go" onclick="doAllocate()">Allocate</button>':'')+'</div>');
+    return;
+  }
+  openModal('<h3>New one-off task</h3>' + sel +
+    '<label>Task</label><input id="m_ti" placeholder="e.g. Order printer toner for the office">' +
+    '<label>Details (optional)</label><textarea id="m_de"></textarea>' +
+    '<label>Allocate to</label><select id="m_to">'+assignable().map(p=>opt(p)).join('')+'</select>' +
+    tatFields(1,'Days') +
+    '<div class="small" style="margin-top:6px">Planned = now + TAT (Sundays and holidays are counted)</div>' +
+    '<div class="actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="m_go" onclick="doCreate()">Assign</button></div>');
+  setTimeout(()=>$('#m_ti').focus(), 50);
+}
+async function doAllocate(){
+  $('#m_go').disabled = true;
+  const ev = $('#m_ev').value, to = $('#m_to').value, toName = $('#m_to').selectedOptions[0].textContent;
+  try{ await run('allocateEnquiry', AUTH(), ev, to, $('#m_re').value);
+       closeModal(); toast(ev+' allocated to '+toName); await load(); }
+  catch(e){ $('#m_go').disabled = false; }
+}
+async function doCreate(){
+  $('#m_go').disabled = true;
+  try{ const id = await run('createTask', AUTH(), { title:$('#m_ti').value, desc:$('#m_de').value, to:$('#m_to').value,
+                                                    tatValue:$('#m_tv').value, tatUnit:$('#m_tu').value });
+       closeModal(); toast(id+' assigned'); await load(); }
+  catch(e){ $('#m_go').disabled = false; }
+}
+function editModal(id){
+  const t = ST.data.tasks.find(x=>x.id===id);
+  const ppl = assignable();
+  if(!ppl.find(p=>p.id===t.to)) ppl.unshift(ST.boot.people.find(p=>p.id===t.to) || {id:t.to,name:t.toName,roleLabel:''});
+  openModal('<h3>Edit '+esc(id)+'</h3><div class="small">Allocated by '+esc(t.byName)+'</div>' +
+    '<label>Task</label><input id="m_ti" value="'+esc(t.title)+'">' +
+    '<label>Details</label><textarea id="m_de">'+esc(t.desc)+'</textarea>' +
+    '<label>Allocated to</label><select id="m_to">'+ppl.map(p=>opt(p,t.to)).join('')+'</select>' +
+    tatFields(t.tatValue, t.tatUnit) +
+    '<div class="small" style="margin-top:6px">On reassign, Planned is recalculated from the new assign time.</div>' +
+    '<label>Remark</label><input id="m_re" value="'+esc(t.remark)+'">' +
+    '<div class="actions">' + (t.status!=='Cancelled'?'<button class="btn red" onclick="cancelTask(\''+id+'\')">Cancel task</button>':'') +
+      '<span style="flex:1"></span><button class="btn ghost" onclick="closeModal()">Close</button><button class="btn" id="m_go" onclick="doEdit(\''+id+'\')">Save</button></div>');
+}
+async function doEdit(id){
+  $('#m_go').disabled = true;
+  try{ await run('editTask', AUTH(), id, { title:$('#m_ti').value, desc:$('#m_de').value, to:$('#m_to').value,
+                                          tatValue:$('#m_tv').value, tatUnit:$('#m_tu').value, remark:$('#m_re').value });
+       closeModal(); toast(id+' updated'); await load(); }
+  catch(e){ $('#m_go').disabled = false; }
+}
+async function cancelTask(id){
+  if(!confirm('Cancel '+id+'?')) return;
+  try{ await run('updateStatus', AUTH(), id, 'Cancelled'); closeModal(); toast(id+' cancelled'); await load(); }catch(e){}
+}
+
+/* ---------------- popups: task done (to allocator) / enquiry allocated (to allocatee) ---------------- */
+function handleNotifs(list){
+  ST.notifs = list;
+  $('#bellc').innerHTML = list.length ? '<span class="badge">'+list.length+'</span>' : '';
+  showNextPop();
+}
+function showNextPop(){
+  if(ST.popOpen) return;
+  const n = (ST.notifs||[]).find(x=>!ST.snooze[x.id]);
+  if(!n) return;
+  ST.popOpen = n.id;
+  const enq = /^EVT-/i.test(n.taskId||''), stp = /^STEP-/i.test(n.taskId||'');
+  $('#popBox').innerHTML = '<h3>'+(stp?'🔔 FMS step marked — update the FMS':enq?'📋 Enquiry allocated to you':'✅ Task complete')+'</h3><div class="msg">'+esc(n.msg)+'</div>' +
+    '<div class="small" style="margin-top:6px">'+esc(n.taskId)+' · '+fmt(n.at)+'</div>' +
+    '<div class="actions"><button class="btn ghost" onclick="snoozePop()">Later</button><button class="btn" onclick="ackPop()">OK</button></div>';
+  $('#pop').classList.remove('hidden');
+}
+async function ackPop(){
+  const id = ST.popOpen;
+  try{ await run('markSeen', AUTH(), id); ST.notifs = ST.notifs.filter(x=>x.id!==id); handleNotifs(ST.notifs); }
+  catch(e){ ST.snooze[id] = 1; }
+  closePop(); showNextPop();
+}
+function snoozePop(){ ST.snooze[ST.popOpen] = 1; closePop(); showNextPop(); }
+function closePop(){ ST.popOpen = false; $('#pop').classList.add('hidden'); }
+function reopenNotifs(){
+  if(!(ST.notifs||[]).length){ toast('No new notifications'); return; }
+  ST.snooze = {}; closePop(); showNextPop();
+}
+
+/* ---------------- PIN login (people without a @creativerays.in account) ---------------- */
+function showLogin(msg, prefill, info){
+  clearInterval(ST.pollT); clearInterval(ST.tickT);
+  $('#tabs').innerHTML = ''; $('#cards').innerHTML = ''; $('#filters').innerHTML = ''; $('#errors').innerHTML = '';
+  $('#who').textContent = ''; $('#viewas').innerHTML = ''; $('#testtag').innerHTML = '';
+  $('#view').innerHTML =
+    '<div class="panel" style="max-width:380px;margin:40px auto"><h4 style="background:var(--brand)">Sign in<small>CRES Task Dashboard</small></h4>' +
+    '<div style="padding:16px" class="box" id="loginBox">' +
+      '<div class="small">Use the email registered with CRES and the PIN given to you.</div>' +
+      '<label>Email</label><input id="l_em" type="email" autocomplete="username" value="'+esc(prefill||'')+'">' +
+      '<label>PIN</label><input id="l_pin" type="password" inputmode="numeric" autocomplete="current-password" onkeydown="if(event.key===\'Enter\')doLogin()">' +
+      (info?'<div style="margin-top:10px;padding:8px;border-radius:6px;background:#e8f1fb;color:#1d5fa8;font-size:13px">'+esc(info)+'</div>':'') +
+      (msg?'<div class="late" style="margin-top:8px">'+esc(msg)+'</div>':'') +
+      '<div class="actions"><button class="btn" id="l_go" onclick="doLogin()">Sign in</button></div>' +
+      '<div class="small" style="margin-top:10px">Forgot your PIN? Ask the MIS team to reset it.</div>' +
+    '</div></div>';
+  setTimeout(()=>{ const x = $(prefill ? '#l_pin' : '#l_em'); if(x) x.focus(); }, 50);
+}
+async function doLogin(){
+  const em = $('#l_em').value, pin = $('#l_pin').value;
+  if(!em || !pin){ toast('Enter email and PIN', 'err'); return; }
+  $('#l_go').disabled = true;
+  try{
+    TOKEN = await run('pinLogin', em, pin);
+    ST.loginEmail = em.trim();
+    try{ sessionStorage.setItem('cresTok', TOKEN); sessionStorage.setItem('cresEm', ST.loginEmail); }catch(e){}
+    ST.viewAs = ST.pendingViewAs || null;      // admin "View as" target (ignored for everyone else)
+    ST.pendingViewAs = null;
+    init();
+  }catch(e){ const b = $('#l_go'); if(b) b.disabled = false; }
+}
+async function logout(){
+  try{ await run('pinLogout', TOKEN); }catch(e){}
+  TOKEN = ''; try{ sessionStorage.removeItem('cresTok'); }catch(e){}
+  ST.data = null; ST.boot = null; showLogin();
+}
+
+function toggleView(){
+  const on = !document.body.classList.contains('mobile');
+  document.body.classList.toggle('mobile', on);
+  $('#viewbtn').textContent = on ? '🖥 Desktop view' : '📱 Mobile view';
+  try{ localStorage.setItem('cresView', on ? 'mobile' : 'desktop'); }catch(e){}
+}
+try{ if(localStorage.getItem('cresView')==='mobile') toggleView(); }catch(e){}
+
+init();
+if('serviceWorker' in navigator){ window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{})); }
+</script>
+</body>
+</html>
