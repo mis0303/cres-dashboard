@@ -44,7 +44,7 @@
   .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
   .card .n{font-size:22px;font-weight:700} .card .l{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
   .card.late .n{color:var(--late)} .card.ok .n{color:var(--ok)}
-  .panels{display:grid;grid-template-columns:1.15fr 1fr 1.15fr;gap:12px;align-items:start}
+  .panels{display:grid;grid-template-columns:var(--cols,1.15fr 1fr 1.15fr);gap:12px;align-items:start}
   .panels > .panel{min-width:0}
   .panel{background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}
   .panel h4{margin:0;padding:10px 12px;font-size:13px;color:#fff;display:flex;justify-content:space-between;align-items:center}
@@ -390,10 +390,11 @@ function renderDash(){
         return '<tr class="click" onclick="goTab(\'tasks\')"><td class="mono">'+t.id+'</td><td><b>'+esc(t.title)+'</b><div class="small">by '+esc(t.byName)+'</div></td><td class="small">'+fmt(t.planned)+'</td><td class="'+d.cls+'">'+d.txt+'</td><td>'+esc(t.toName)+'</td></tr>'; }).join('') +
       '</tbody></table>');
 
-  let p5 = '';
+  let p5 = '', p5Rows = 0;
   if(ST.data.showPending){
-    const pf = (ST.data.pendingFms || []).filter(a=>!(mineOnly() && me().seeAll) || nameN(a.toName)===nameN(me().name));
-    const pend = pf.filter(a=>!a.updated).length;
+    const myN = nameN(me().name);
+    const pf = (ST.data.pendingFms || []).filter(a=>!(mineOnly() && me().seeAll) || nameN(a.toName)===myN || nameN(a.byName)===myN);
+    const pend = pf.filter(a=>!a.updated).length; p5Rows = pf.length;
     p5 = panel('Enquiry Allocations', pend+' pending FMS update', '#b45309',
       '<table><thead><tr><th>Event ID</th><th>Company</th><th>Allocated to</th><th>FMS</th><th>FMS Doer now</th><th>By</th><th>When</th></tr></thead><tbody>' +
         pf.map(a=>'<tr class="click" onclick="eventModal(\''+a.id+'\')"><td class="mono">'+a.id+'</td><td><b>'+esc(a.company)+'</b></td><td>'+esc(a.toName)+'</td>' +
@@ -402,7 +403,17 @@ function renderDash(){
         '</tbody></table>');
   }
 
-  $('#view').innerHTML = '<div class="panels"><div class="col">'+p1+'</div><div class="col">'+p2+p5+'</div><div class="col">'+p3+'</div></div>';
+  // All: every panel. Mine: hide empty event panels and the allocation panel when nothing is allocated;
+  // One-off Tasks always stays. Columns keep their normal width and shift to the left.
+  const mine = scopeMine();
+  const cols = [
+    { w:1.15, html: (!mine || conf.length) ? p1 : '' },
+    { w:1,    html: ((!mine || ong.length) ? p2 : '') + ((!mine || p5Rows) ? p5 : '') },
+    { w:1.15, html: p3 }
+  ].filter(c=>c.html);
+  const used = cols.reduce((a,c)=>a+c.w, 0), spare = +(3.3 - used).toFixed(2);
+  const tpl = cols.map(c=>c.w+'fr').join(' ') + (spare > 0 ? ' '+spare+'fr' : '');
+  $('#view').innerHTML = '<div class="panels" style="--cols:'+tpl+'">' + cols.map(c=>'<div class="col">'+c.html+'</div>').join('') + '</div>';
 }
 function panel(title, sub, color, body){
   return '<div class="panel"><h4 style="background:'+color+'">'+title+'<small>'+sub+'</small></h4><div class="scroll">'+body+'</div></div>';
