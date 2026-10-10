@@ -44,6 +44,8 @@
   .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
   .card .n{font-size:22px;font-weight:700} .card .l{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
   .card.late .n{color:var(--late)} .card.ok .n{color:var(--ok)}
+  .srn{width:34px;color:var(--muted);font-weight:600;text-align:center}
+  .estat{padding:3px 6px;border:1px solid var(--line);border-radius:6px;font-size:12px;background:#fff}
   .panels{display:grid;grid-template-columns:var(--cols,1.15fr 1fr 1.15fr);gap:12px;align-items:start}
   .panels > .panel{min-width:0}
   .panel{background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}
@@ -82,7 +84,10 @@
   .grid thead th{position:sticky;background:#f9fafb;z-index:2}
   .grid thead tr:first-child th{top:0;color:#fff;font-size:11px;letter-spacing:.4px}
   .grid thead tr:nth-child(2) th{top:27px;text-transform:none;font-size:11px;white-space:normal;min-width:84px;max-width:100px;line-height:1.25;vertical-align:bottom;color:#374151}
-  .grid .ev{position:sticky;left:0;background:#fff;z-index:1;text-align:left;min-width:220px;max-width:240px;border-right:2px solid var(--line)}
+  .grid .sr{position:sticky;left:0;background:#fff;z-index:1;width:38px;min-width:38px;max-width:38px;color:var(--muted);font-weight:600}
+  .grid thead .sr{z-index:3;background:#f9fafb;color:#374151 !important;vertical-align:bottom;font-size:11px}
+  .grid tbody tr:hover td.sr{background:#f2f7f7}
+  .grid .ev{position:sticky;left:38px;background:#fff;z-index:1;text-align:left;min-width:220px;max-width:240px;border-right:2px solid var(--line)}
   .grid thead .ev{z-index:3;background:#f9fafb;color:#374151 !important;vertical-align:bottom;font-size:12px}
   .grid tbody tr:hover td{background:#fafcfc} .grid tbody tr:hover td.ev{background:#f2f7f7}
   .c{display:inline-block;min-width:66px;padding:2px 4px;border-radius:5px;font-weight:600;white-space:nowrap}
@@ -379,8 +384,10 @@ function renderDash(){
       '</tbody></table>');
 
   const p2 = panel('Ongoing Enquiries', 'Lead to Order FMS', 'var(--L2O)',
-    '<table><thead><tr><th>Client</th><th>Company</th><th>Approx Event Date</th></tr></thead><tbody>' +
-      ong.map(e=>'<tr class="click" onclick="eventModal(\''+e.id+'\')"><td>'+esc(e.client)+'</td><td><b>'+esc(e.company)+'</b>'+
+    '<table><thead><tr><th class="srn">Sr.</th><th>Status</th><th>Client</th><th>Company</th><th>Approx Event Date</th></tr></thead><tbody>' +
+      ong.map((e,n)=>'<tr class="click" onclick="eventModal(\''+e.id+'\')"><td class="srn">'+(n+1)+'</td>' +
+        '<td onclick="event.stopPropagation()"><select class="estat" onchange="statusPick(this,\''+e.id+'\')"><option selected>Active</option><option>Lost</option></select></td>' +
+        '<td>'+esc(e.client)+'</td><td><b>'+esc(e.company)+'</b>'+
         tags(e)+'<div class="mono">'+e.id+(e.lead?' · '+esc(e.lead):'')+'</div></td><td>'+esc(e.eventDate||'—')+'</td></tr>').join('') +
       '</tbody></table>');
 
@@ -470,13 +477,14 @@ function renderTrackerTable(){
   const chip = (st,label)=>'<span class="c '+(st||'all')+' chipf'+(want===st?' sel':'')+'" onclick="ST.f.cell=\''+st+'\';renderTrackerTable()">'+label+'</span>';
   let h = '<div class="legend">'+chip('','All')+chip('done','Done')+chip('late','+delay')+chip('due','due today')+chip('up','upcoming')+chip('no','No') +
     ' · click a colour to show only those steps · hover a cell for details · click an event for the full view</div>';
-  h += '<div class="tablewrap" style="max-height:72vh"><table class="grid"><thead><tr><th class="ev" rowspan="2" style="top:0">Event</th>' +
+  h += '<div class="tablewrap" style="max-height:72vh"><table class="grid"><thead><tr><th class="sr" rowspan="2" style="top:0">Sr.</th><th class="ev" rowspan="2" style="top:0">Event</th>' +
     stages.map(k=>{ const n = cols.filter(c=>c[0]===k).length;
       return n ? '<th colspan="'+n+'" style="background:'+STAGE_COLOR[k]+'">'+esc(stageLabel(k))+'</th>' : ''; }).join('') + '</tr><tr>' +
     cols.map(([k,i])=>'<th>'+esc(steps[k][i].name)+'</th>').join('') + '</tr></thead><tbody>';
   if(!rows.length) h += '<tr><td class="ev" colspan="99"><div class="empty">'+(want?'No steps in this state.':'No events.')+'</div></td></tr>';
-  rows.forEach(e=>{
-    h += '<tr><td class="ev"><span class="link click" style="font-weight:700;color:var(--brand);cursor:pointer" onclick="eventModal(\''+e.id+'\')">'+esc(e.company||'—')+'</span>' +
+  // Sr. No counts only the rows shown (lost enquiries and filtered-out events are skipped)
+  rows.forEach((e, n)=>{
+    h += '<tr><td class="sr">'+(n+1)+'</td><td class="ev"><span class="link click" style="font-weight:700;color:var(--brand);cursor:pointer" onclick="eventModal(\''+e.id+'\')">'+esc(e.company||'—')+'</span>' +
       tags(e) +
       '<div class="mono">'+e.id+' · '+(e.lead?esc(e.lead):'—')+'</div></td>';
     cols.forEach(([k,i])=>{
@@ -583,6 +591,23 @@ async function doMark(evId, stage, i, val){
   try{ await run('markStep', AUTH(), evId, stage, i, val, $('#m_note').value); closeModal(); toast('Marked '+val+' — Ashwini notified'); await load(); }
   catch(e){ const b = $('#m_go'); if(b) b.disabled = false; }
 }
+/* ---------------- Enquiry status: Lost hides the enquiry from the dashboard (FMS untouched) ---------------- */
+function statusPick(sel, evId){
+  if(sel.value !== 'Lost') return;
+  sel.value = 'Active';                      // stays Active until confirmed
+  const e = ST.data.events.find(x=>x.id===evId) || {};
+  openModal('<h3>Mark enquiry as Lost</h3>' +
+    '<div class="kv">'+kv('Enquiry', (e.company||'')+' ('+evId+')')+kv('Client', e.client||'—')+'</div>' +
+    '<label>Reason (optional)</label><textarea id="m_note" placeholder="e.g. Budget mismatch / client went with another agency"></textarea>' +
+    '<div class="small" style="margin-top:6px">It will be hidden from the dashboard for everyone. The FMS row stays as it is.</div>' +
+    '<div class="actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="m_go" style="background:var(--late);border-color:var(--late)" onclick="doLost(\''+evId+'\')">Mark Lost</button></div>');
+  setTimeout(()=>{ const t = $('#m_note'); if(t) t.focus(); }, 50);
+}
+async function doLost(evId){
+  $('#m_go').disabled = true;
+  try{ await run('setEnquiryStatus', AUTH(), evId, 'Lost', $('#m_note').value); closeModal(); toast('Enquiry marked Lost'); await load(); }
+  catch(e){ const b = $('#m_go'); if(b) b.disabled = false; }
+}
 async function doUndo(markId){
   if(!confirm('Undo this mark? Ashwini will be told to ignore it.')) return;
   try{ await run('undoStep', AUTH(), markId); toast('Mark undone'); await load(); }catch(e){}
@@ -615,7 +640,7 @@ function renderFollow(){
     '<select onchange="ST.f.fuType=this.value;render()">'+opt2('all','Tasks + FMS steps',f.fuType)+opt2('task','One-off tasks only',f.fuType)+opt2('fms','FMS steps only',f.fuType)+'</select>' +
     '<select onchange="ST.f.fuWho=this.value;render()"><option value="">Everyone</option>'+people.map(p=>opt2(p,esc(p),f.fuWho)).join('')+'</select>';
   const list = all.filter(x=>(f.fuWhen==='both'||x.w===f.fuWhen) && (f.fuType==='all'||x.type===f.fuType) && (!f.fuWho||x.who===f.fuWho));
-  const mks = (ST.data.marks||[]).filter(m=>!m.synced).sort((a,b)=>a.at-b.at);
+  const mks = (ST.data.marks||[]).filter(m=>!m.synced && ST.data.events.some(e=>e.id===m.eventId)).sort((a,b)=>a.at-b.at);
   const marksHtml = '<div class="panel" style="margin-bottom:14px"><h4 style="background:#1d5fa8">Marked in dashboard · update the FMS<small>'+mks.length+' pending</small></h4>' +
     '<div class="tablewrap" style="border:0;border-radius:0;max-height:300px"><table><thead><tr><th>Event</th><th>Stage</th><th>Step</th><th>Marked</th><th>By</th><th>Marked at</th><th>Note</th><th></th></tr></thead><tbody>' +
     (mks.length ? mks.map(m=>'<tr class="click" onclick="eventModal(\''+m.eventId+'\')"><td><b>'+esc(m.company)+'</b><div class="mono">'+m.eventId+'</div></td>' +
