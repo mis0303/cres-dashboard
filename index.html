@@ -328,7 +328,7 @@ function renderInner(){
   const d = ST.data;
   $('#errors').innerHTML = (d.errors||[]).length
     ? '<div class="errors"><b>Source read error:</b> '+d.errors.map(esc).join(' · ')+'</div>' : '';
-  const tabs = [['dash','Dashboard'],['tracker','Event Tracker'],['tasks','One-off Tasks'],['fms', me().seeAll?'FMS Steps':'My FMS Steps']];
+  const tabs = [['dash','Dashboard'],['tracker','Event Tracker'],['tasks','One-off Tasks'],['fms','Your Tasks']];
   if(me().isPC) tabs.unshift(['follow','Follow-ups']);
   if(!tabs.some(t=>t[0]===ST.tab)) ST.tab = tabs[0][0];
   let h = tabs.map(t=>'<button class="tab '+(t[0]===ST.tab?'on':'')+'" onclick="goTab(\''+t[0]+'\')">'+t[1]+'</button>').join('');
@@ -377,7 +377,7 @@ function renderCards(){
   const conf = evs.filter(e=>e.phase==='Confirmed').length;
   $('#cards').innerHTML =
     card(ong,'Ongoing enquiries','') + card(conf,'Confirmed events','ok') +
-    card(ps.filter(p=>p.planned < now()).length, me().seeAll?'FMS steps overdue':'My FMS steps overdue','late') +
+    card(ps.filter(p=>p.planned < now()).length, me().seeAll?'Tasks overdue':'My tasks overdue','late') +
     card(tasks.filter(isOpen).length + ' / ' + tasks.filter(isLate).length, 'Open / overdue tasks','');
 }
 function card(n,l,c){ return '<div class="card '+c+'"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>'; }
@@ -568,7 +568,7 @@ function renderFms(){
   $('#filters').innerHTML =
     '<select onchange="ST.f.fstate=this.value;render()">' +
       [['pending','All pending'],['late','Overdue only'],['today','Due today']].map(o=>'<option value="'+o[0]+'" '+(f.fstate===o[0]?'selected':'')+'>'+o[1]+'</option>').join('') + '</select>' +
-    (all ? '<select onchange="ST.f.fwho=this.value;render()"><option value="">All doers</option>' +
+    (all ? '<select onchange="ST.f.fwho=this.value;render()"><option value="">All employees</option>' +
       doers.map(d=>'<option '+(f.fwho===d?'selected':'')+'>'+esc(d)+'</option>').join('') + '</select>' : '') +
     '<select onchange="ST.f.fev=this.value;render()" style="max-width:320px"><option value="">All events</option>' +
       evOpts.map(e=>'<option value="'+e.id+'" '+(f.fev===e.id?'selected':'')+'>'+esc(e.company+' · '+e.id)+'</option>').join('') + '</select>';
@@ -580,8 +580,8 @@ function renderFms(){
     if(f.fev && p.ev.id!==f.fev) return false;
     return true;
   }).sort((a,b)=>a.planned-b.planned);
-  if(!list.length){ $('#view').innerHTML = '<div class="tablewrap"><div class="empty">No pending FMS steps.</div></div>'; return; }
-  $('#view').innerHTML = '<div class="small" style="margin-bottom:6px">Mark a step <b>Done</b> / <b>Yes</b> / <b>No</b> here — Ashwini gets notified and updates the FMS. The dashboard never writes to the FMS.</div>' +
+  if(!list.length){ $('#view').innerHTML = '<div class="tablewrap"><div class="empty">No pending tasks.</div></div>'; return; }
+  $('#view').innerHTML = '<div class="small" style="margin-bottom:6px">Mark a task <b>Done</b> / <b>Yes</b> / <b>No</b> here — Ashwini gets notified and updates the FMS. The dashboard never writes to the FMS.</div>' +
     '<div class="tablewrap"><table><thead><tr><th>Event</th><th>Stage</th><th>Step</th><th>Doer</th><th>Planned</th><th>Delay</th><th>Action</th></tr></thead><tbody>' +
     list.map(p=>{ const d = delayOf(p.planned);
       return '<tr class="click" onclick="eventModal(\''+p.ev.id+'\')"><td><b>'+esc(p.ev.company)+'</b><div class="mono">'+p.ev.id+'</div></td>' +
