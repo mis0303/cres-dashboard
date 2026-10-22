@@ -357,7 +357,10 @@ function EVS(){ return scopeMine() ? ST.data.events.filter(isMineEvent) : ST.dat
 function trackEVS(){ return mineOnly() ? ST.data.events.filter(isMineEvent) : ST.data.events; }
 function setScope(s){ ST.scope = s; try{ localStorage.setItem('cresScope', s); }catch(e){} render(); }
 
-function pendingSteps(ignoreScope){
+// "Your Tasks" admins — only Kunal (owner) and Ashwini (PC) see everyone's tasks and the employee dropdown
+function isTaskAdmin(){ return !!(me().owner || me().isPC); }
+// Every pending FMS step across all events, with no role filtering (used by Your Tasks + its cards)
+function allPendingSteps(){
   const out = [];
   ST.data.events.forEach(ev=>{
     ['L2O','O2D','PE'].forEach(k=>{
@@ -368,16 +371,27 @@ function pendingSteps(ignoreScope){
       });
     });
   });
+  return out;
+}
+// Tasks this person should see in Your Tasks: admins see everyone, everyone else sees only their own
+function myPendingSteps(){
+  return isTaskAdmin() ? allPendingSteps() : allPendingSteps().filter(p=>nameN(p.doer)===nameN(me().name));
+}
+function pendingSteps(ignoreScope){
+  const out = allPendingSteps();
   return (me().seeAll && (ignoreScope || !mineOnly())) ? out : out.filter(p=>nameN(p.doer)===nameN(me().name));
 }
 
 function renderCards(){
-  const evs = EVS(), ps = pendingSteps(), tasks = myTaskList();
+  const evs = EVS(), tasks = myTaskList();
+  // "My tasks overdue" counts the same tasks the Your Tasks tab shows for this person:
+  // admins (owner/PC) see everyone's; every other person sees only their own.
+  const myPend = myPendingSteps();
   const ong = evs.filter(e=>e.phase==='Ongoing').length;
   const conf = evs.filter(e=>e.phase==='Confirmed').length;
   $('#cards').innerHTML =
     card(ong,'Ongoing enquiries','') + card(conf,'Confirmed events','ok') +
-    card(ps.filter(p=>p.planned < now()).length, me().seeAll?'Tasks overdue':'My tasks overdue','late') +
+    card(myPend.filter(p=>p.planned < now()).length, isTaskAdmin()?'Tasks overdue':'My tasks overdue','late') +
     card(tasks.filter(isOpen).length + ' / ' + tasks.filter(isLate).length, 'Open / overdue tasks','');
 }
 function card(n,l,c){ return '<div class="card '+c+'"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>'; }
@@ -558,11 +572,14 @@ function kv(k,v){ return '<b>'+k+'</b><span>'+esc(v||'—')+'</span>'; }
 
 /* ---------------- FMS steps list ---------------- */
 function renderFms(){
-  const f = ST.f, all = me().seeAll;
-  const doers = [...new Set(pendingSteps().map(p=>p.doer||'(blank)'))].sort();
+  const f = ST.f, all = isTaskAdmin();
+  // Your Tasks: only admins (owner/PC) see everyone; every other person — including seeAll
+  // roles like operations — sees only their own tasks here (the full picture is on the Dashboard/Tracker).
+  const mine = myPendingSteps();
+  const doers = [...new Set(allPendingSteps().map(p=>p.doer||'(blank)'))].sort();
   // events that have pending steps (latest Event ID first)
   const evMap = {};
-  pendingSteps().forEach(p=>{ evMap[p.ev.id] = p.ev; });
+  mine.forEach(p=>{ evMap[p.ev.id] = p.ev; });
   const evOpts = Object.values(evMap).sort((a,b)=>b.num-a.num);
   if(f.fev && !evMap[f.fev]) f.fev = '';
   $('#filters').innerHTML =
@@ -573,7 +590,7 @@ function renderFms(){
     '<select onchange="ST.f.fev=this.value;render()" style="max-width:320px"><option value="">All events</option>' +
       evOpts.map(e=>'<option value="'+e.id+'" '+(f.fev===e.id?'selected':'')+'>'+esc(e.company+' · '+e.id)+'</option>').join('') + '</select>';
   const n = now();
-  const list = pendingSteps().filter(p=>{
+  const list = mine.filter(p=>{
     if(f.fstate==='late' && !(p.planned < n)) return false;
     if(f.fstate==='today' && dayKey(p.planned)!==dayKey(n)) return false;
     if(all && f.fwho && (p.doer||'(blank)')!==f.fwho) return false;
