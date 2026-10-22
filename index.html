@@ -357,8 +357,8 @@ function EVS(){ return scopeMine() ? ST.data.events.filter(isMineEvent) : ST.dat
 function trackEVS(){ return mineOnly() ? ST.data.events.filter(isMineEvent) : ST.data.events; }
 function setScope(s){ ST.scope = s; try{ localStorage.setItem('cresScope', s); }catch(e){} render(); }
 
-// "Your Tasks" admins — only Kunal (owner) and Ashwini (PC) see everyone's tasks and the employee dropdown
-function isTaskAdmin(){ return !!(me().owner || me().isPC); }
+// "Your Tasks" admins — Kunal (owner), Ashwini (PC) and Jigar (MIS) see everyone's tasks and the employee dropdown
+function isTaskAdmin(){ return !!(me().owner || me().isPC || /mis/i.test(me().roleLabel||'')); }
 // Every pending FMS step across all events, with no role filtering (used by Your Tasks + its cards)
 function allPendingSteps(){
   const out = [];
