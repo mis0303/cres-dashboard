@@ -417,8 +417,10 @@ function renderDash(){
   const tasks = myTaskList().filter(isOpen).sort((a,b)=>(a.planned||0)-(b.planned||0));
 
   const p1 = panel('Confirmed Events', 'Order to Delivery FMS', 'var(--O2D)',
-    '<table><thead><tr><th>Event ID</th><th>Company</th><th>Client</th><th>Event Date</th><th>Allocated to</th></tr></thead><tbody>' +
-      conf.map(e=>'<tr class="click" onclick="eventModal(\''+e.id+'\')"><td class="mono">'+e.id+'</td><td><b>'+esc(e.company)+'</b>'+
+    '<table><thead><tr><th>Status</th><th>Event ID</th><th>Company</th><th>Client</th><th>Event Date</th><th>Allocated to</th></tr></thead><tbody>' +
+      conf.map(e=>'<tr class="click" onclick="eventModal(\''+e.id+'\')">' +
+        '<td onclick="event.stopPropagation()"><select class="estat" onchange="donePick(this,\''+e.id+'\')"><option selected>Active</option><option>Event Done</option></select></td>' +
+        '<td class="mono">'+e.id+'</td><td><b>'+esc(e.company)+'</b>'+
         '</td><td>'+esc(e.client)+'</td><td>'+esc(e.eventDate||'—')+'</td><td>'+leadCell(e)+'</td></tr>').join('') +
       '</tbody></table>');
 
@@ -649,6 +651,23 @@ function statusPick(sel, evId){
 async function doLost(evId){
   $('#m_go').disabled = true;
   try{ await run('setEnquiryStatus', AUTH(), evId, 'Cancelled', $('#m_note').value); closeModal(); toast('Enquiry marked Cancelled'); await load(); }
+  catch(e){ const b = $('#m_go'); if(b) b.disabled = false; }
+}
+/* ---------------- Confirmed events: "Event Done" hides the event from the dashboard (FMS untouched) ---------------- */
+function donePick(sel, evId){
+  if(sel.value !== 'Event Done') return;
+  sel.value = 'Active';                      // stays Active until confirmed
+  const e = ST.data.events.find(x=>x.id===evId) || {};
+  openModal('<h3>Mark event as Done</h3>' +
+    '<div class="kv">'+kv('Event', (e.company||'')+' ('+evId+')')+kv('Client', e.client||'—')+kv('Event date', e.eventDate||'—')+'</div>' +
+    '<label>Note (optional)</label><textarea id="m_note" placeholder="e.g. Event executed, closure pending in FMS"></textarea>' +
+    '<div class="small" style="margin-top:6px">It will be hidden from the dashboard for everyone. The FMS rows and steps stay exactly as they are.</div>' +
+    '<div class="actions"><button class="btn ghost" onclick="closeModal()">Close</button><button class="btn" id="m_go" onclick="doDone(\''+evId+'\')">Mark Event Done</button></div>');
+  setTimeout(()=>{ const t = $('#m_note'); if(t) t.focus(); }, 50);
+}
+async function doDone(evId){
+  $('#m_go').disabled = true;
+  try{ await run('setEnquiryStatus', AUTH(), evId, 'Done', $('#m_note').value); closeModal(); toast('Event marked Done'); await load(); }
   catch(e){ const b = $('#m_go'); if(b) b.disabled = false; }
 }
 async function doUndo(markId){
