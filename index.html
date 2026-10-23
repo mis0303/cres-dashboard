@@ -441,7 +441,8 @@ function renderDash(){
     const myN = nameN(me().name);
     const pf = (ST.data.pendingFms || []).filter(a=>!(mineOnly() && me().seeAll) || nameN(a.toName)===myN || nameN(a.byName)===myN);
     const pend = pf.filter(a=>!a.updated).length; p5Rows = pf.length;
-    p5 = panel('Enquiry Allocations', pend+' pending FMS update', '#b45309',
+    // Show the Enquiry Allocations panel only when at least one enquiry has been allocated
+    if(pf.length) p5 = panel('Enquiry Allocations', pend+' pending FMS update', '#b45309',
       '<table><thead><tr><th>Event ID</th><th>Company</th><th>Allocated to</th><th>FMS</th><th>FMS Doer now</th><th>By</th><th>When</th></tr></thead><tbody>' +
         pf.map(a=>'<tr class="click" onclick="eventModal(\''+a.id+'\')"><td class="mono">'+a.id+'</td><td><b>'+esc(a.company)+'</b></td><td>'+esc(a.toName)+'</td>' +
           '<td>'+(a.updated?'<span class="pill s-done">Updated</span>':'<span class="pill" style="background:var(--lateBg);color:var(--late)">Not updated</span>')+'</td>' +
