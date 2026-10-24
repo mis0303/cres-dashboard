@@ -328,8 +328,9 @@ function renderInner(){
   const d = ST.data;
   $('#errors').innerHTML = (d.errors||[]).length
     ? '<div class="errors"><b>Source read error:</b> '+d.errors.map(esc).join(' · ')+'</div>' : '';
-  const tabs = [['dash','Dashboard'],['tracker','Event Tracker'],['tasks','One-off Tasks'],['fms','Your Tasks']];
-  if(me().isPC) tabs.unshift(['follow','Follow-ups']);
+  // Your Tasks is the first tab (opens by default), then Dashboard
+  const tabs = [['fms','Your Tasks'],['dash','Dashboard'],['tracker','Event Tracker'],['tasks','One-off Tasks']];
+  if(me().isPC) tabs.splice(1, 0, ['follow','Follow-ups']);
   if(!tabs.some(t=>t[0]===ST.tab)) ST.tab = tabs[0][0];
   let h = tabs.map(t=>'<button class="tab '+(t[0]===ST.tab?'on':'')+'" onclick="goTab(\''+t[0]+'\')">'+t[1]+'</button>').join('');
   h += '<span style="flex:1"></span>';
@@ -407,6 +408,11 @@ function tags(e){
   return nw;            // only the NEW tag (ongoing enquiries) — no other labels next to event names
 }
 function leadCell(e){ return e.lead ? esc(e.lead) : '<span class="muted">—</span>'; }
+// Event Name (from the enquiry form; blank for older enquiries)
+function evName(e){ return (e && e.eventName) ? String(e.eventName) : ''; }
+function evNameCell(e){ return evName(e) ? esc(evName(e)) : '<span class="muted">—</span>'; }
+function evNameLine(e){ return evName(e) ? '<div class="small">'+esc(evName(e))+'</div>' : ''; }
+function evNameById(id){ return evName((ST.data.events||[]).find(x=>x.id===id)); }
 
 /* ---------------- dashboard (3 panels, as per format) ---------------- */
 function renderDash(){
@@ -417,19 +423,19 @@ function renderDash(){
   const tasks = myTaskList().filter(isOpen).sort((a,b)=>(a.planned||0)-(b.planned||0));
 
   const p1 = panel('Confirmed Events', 'Order to Delivery FMS', 'var(--O2D)',
-    '<table><thead><tr><th>Status</th><th>Event ID</th><th>Company</th><th>Client</th><th>Event Date</th><th>Allocated to</th></tr></thead><tbody>' +
+    '<table><thead><tr><th>Status</th><th>Event ID</th><th>Company</th><th>Event Name</th><th>Client</th><th>Event Date</th><th>Allocated to</th></tr></thead><tbody>' +
       conf.map(e=>'<tr class="click" onclick="eventModal(\''+e.id+'\')">' +
         '<td onclick="event.stopPropagation()"><select class="estat" onchange="donePick(this,\''+e.id+'\')"><option selected>Active</option><option>Event Done</option></select></td>' +
         '<td class="mono">'+e.id+'</td><td><b>'+esc(e.company)+'</b>'+
-        '</td><td>'+esc(e.client)+'</td><td>'+esc(e.eventDate||'—')+'</td><td>'+leadCell(e)+'</td></tr>').join('') +
+        '</td><td>'+evNameCell(e)+'</td><td>'+esc(e.client)+'</td><td>'+esc(e.eventDate||'—')+'</td><td>'+leadCell(e)+'</td></tr>').join('') +
       '</tbody></table>');
 
   const p2 = panel('Ongoing Enquiries', 'Lead to Order FMS', 'var(--L2O)',
-    '<table><thead><tr><th class="srn">Sr.</th><th>Status</th><th>Client</th><th>Company</th><th>Approx Event Date</th></tr></thead><tbody>' +
+    '<table><thead><tr><th class="srn">Sr.</th><th>Status</th><th>Client</th><th>Company</th><th>Event Name</th><th>Approx Event Date</th></tr></thead><tbody>' +
       ong.map((e,n)=>'<tr class="click" onclick="eventModal(\''+e.id+'\')"><td class="srn">'+(n+1)+'</td>' +
         '<td onclick="event.stopPropagation()"><select class="estat" onchange="statusPick(this,\''+e.id+'\')"><option selected>Active</option><option>Cancelled</option></select></td>' +
         '<td>'+esc(e.client)+'</td><td><b>'+esc(e.company)+'</b>'+
-        tags(e)+'<div class="mono">'+e.id+(e.lead?' · '+esc(e.lead):'')+'</div></td><td>'+esc(e.eventDate||'—')+'</td></tr>').join('') +
+        tags(e)+'<div class="mono">'+e.id+(e.lead?' · '+esc(e.lead):'')+'</div></td><td>'+evNameCell(e)+'</td><td>'+esc(e.eventDate||'—')+'</td></tr>').join('') +
       '</tbody></table>');
 
   const p3 = panel('One-off Tasks', 'open', 'var(--brand)',
@@ -446,7 +452,7 @@ function renderDash(){
     // Show the Enquiry Allocations panel only when at least one enquiry has been allocated
     if(pf.length) p5 = panel('Enquiry Allocations', pend+' pending FMS update', '#b45309',
       '<table><thead><tr><th>Event ID</th><th>Company</th><th>Allocated to</th><th>FMS</th><th>FMS Doer now</th><th>By</th><th>When</th></tr></thead><tbody>' +
-        pf.map(a=>'<tr class="click" onclick="eventModal(\''+a.id+'\')"><td class="mono">'+a.id+'</td><td><b>'+esc(a.company)+'</b></td><td>'+esc(a.toName)+'</td>' +
+        pf.map(a=>'<tr class="click" onclick="eventModal(\''+a.id+'\')"><td class="mono">'+a.id+'</td><td><b>'+esc(a.company)+'</b>'+evNameLine(a)+'</td><td>'+esc(a.toName)+'</td>' +
           '<td>'+(a.updated?'<span class="pill s-done">Updated</span>':'<span class="pill" style="background:var(--lateBg);color:var(--late)">Not updated</span>')+'</td>' +
           '<td>'+(a.fmsDoer?esc(a.fmsDoer):'<span class="muted">—</span>')+'</td><td>'+esc(a.byName)+'</td><td class="small">'+fmt(a.at)+'</td></tr>').join('') +
         '</tbody></table>');
@@ -499,14 +505,14 @@ function renderTracker(){
     '<select onchange="ST.f.phase=this.value;render()">' +
       [['all','All events'],['Ongoing','Ongoing enquiries'],['Confirmed','Confirmed events']]
         .map(o=>'<option value="'+o[0]+'" '+(f.phase===o[0]?'selected':'')+'>'+o[1]+'</option>').join('') + '</select>' +
-    '<input placeholder="Search company / EVT…" value="'+esc(f.q)+'" oninput="ST.f.q=this.value;renderTrackerTable()">';
+    '<input placeholder="Search company / event name / EVT…" value="'+esc(f.q)+'" oninput="ST.f.q=this.value;renderTrackerTable()">';
   renderTrackerTable();
 }
 function renderTrackerTable(){
   const f = ST.f, q = f.q.trim().toLowerCase(), steps = ST.data.steps;
   const evs = trackEVS().filter(e=>{
     if(f.phase!=='all' && e.phase!==f.phase) return false;
-    if(q && !(e.company+' '+e.id+' '+e.client).toLowerCase().includes(q)) return false;
+    if(q && !(e.company+' '+e.id+' '+e.client+' '+evName(e)).toLowerCase().includes(q)) return false;
     return true;
   });
   const stages = ['L2O','O2D','PE'];
@@ -527,7 +533,7 @@ function renderTrackerTable(){
   // Sr. No counts only the rows shown (lost enquiries and filtered-out events are skipped)
   rows.forEach((e, n)=>{
     h += '<tr><td class="sr">'+(n+1)+'</td><td class="ev"><span class="link click" style="font-weight:700;color:var(--brand);cursor:pointer" onclick="eventModal(\''+e.id+'\')">'+esc(e.company||'—')+'</span>' +
-      tags(e) +
+      tags(e) + evNameLine(e) +
       '<div class="mono">'+e.id+' · '+(e.lead?esc(e.lead):'—')+'</div></td>';
     cols.forEach(([k,i])=>{
       const x = e.cells[k] ? e.cells[k][i] : null;
@@ -543,7 +549,7 @@ function completedModal(id){
   const e = (ST.data.completed||[]).find(x=>x.id===id); if(!e) return;
   const F = e.form || {};
   openModal('<h3>'+esc(e.company||'—')+' <span class="mono">'+e.id+'</span></h3>' +
-    '<div class="kv">'+kv('Client',e.client)+kv('Event date',e.eventDate)+kv('Status','Done')+
+    '<div class="kv">'+kv('Event name',evName(e))+kv('Client',e.client)+kv('Event date',e.eventDate)+kv('Status','Done')+
       kv('Phone',F.phone)+kv('Email',F.email)+kv('Location',F.location)+kv('Event type',F.eventType)+kv('Service',F.service)+
       kv('Captured by',F.capturedBy)+kv('Enquiry date',F.enquiryDate)+kv('Form remark',F.remark)+'</div>' +
     '<b class="small">EVENT BRIEF</b><div class="brief">'+esc(F.brief||'—')+'</div>' +
@@ -555,7 +561,7 @@ function eventModal(id){
   const e = ST.data.events.find(x=>x.id===id); if(!e) return;
   const F = e.form || {};
   let h = '<h3>'+esc(e.company||'—')+' <span class="mono">'+e.id+'</span></h3>' +
-    '<div class="kv">'+kv('Client',e.client)+kv('Event date',e.eventDate)+kv('Stage',e.phase)+kv('Lead (FMS Doer)',e.lead||'—')+(e.alloc?kv('Allocated in dashboard',e.alloc.toName+' by '+e.alloc.byName+', '+fmt(e.alloc.at)):'')+
+    '<div class="kv">'+kv('Event name',evName(e))+kv('Client',e.client)+kv('Event date',e.eventDate)+kv('Stage',e.phase)+kv('Lead (FMS Doer)',e.lead||'—')+(e.alloc?kv('Allocated in dashboard',e.alloc.toName+' by '+e.alloc.byName+', '+fmt(e.alloc.at)):'')+
     (e.form ? kv('Phone',F.phone)+kv('Email',F.email)+kv('Location',F.location)+kv('Event type',F.eventType)+kv('Service',F.service)+
               kv('Captured by',F.capturedBy)+kv('Enquiry date',F.enquiryDate)+kv('Form remark',F.remark) : '') + '</div>';
   if(e.form) h += '<b class="small">EVENT BRIEF</b><div class="brief">'+esc(F.brief||'—')+'</div>';
@@ -593,7 +599,7 @@ function renderFms(){
     (all ? '<select onchange="ST.f.fwho=this.value;render()"><option value="">All employees</option>' +
       doers.map(d=>'<option '+(f.fwho===d?'selected':'')+'>'+esc(d)+'</option>').join('') + '</select>' : '') +
     '<select onchange="ST.f.fev=this.value;render()" style="max-width:320px"><option value="">All events</option>' +
-      evOpts.map(e=>'<option value="'+e.id+'" '+(f.fev===e.id?'selected':'')+'>'+esc(e.company+' · '+e.id)+'</option>').join('') + '</select>';
+      evOpts.map(e=>'<option value="'+e.id+'" '+(f.fev===e.id?'selected':'')+'>'+esc(e.company+(evName(e)?' – '+evName(e):'')+' · '+e.id)+'</option>').join('') + '</select>';
   const n = now();
   const list = mine.filter(p=>{
     if(f.fstate==='late' && !(p.planned < n)) return false;
@@ -606,7 +612,7 @@ function renderFms(){
   $('#view').innerHTML = '<div class="small" style="margin-bottom:6px">Mark a task <b>Done</b> / <b>Yes</b> / <b>No</b> here — Ashwini gets notified and updates the FMS. The dashboard never writes to the FMS.</div>' +
     '<div class="tablewrap"><table><thead><tr><th>Event</th><th>Stage</th><th>Step</th><th>Doer</th><th>Planned</th><th>Delay</th><th>Action</th></tr></thead><tbody>' +
     list.map(p=>{ const d = delayOf(p.planned);
-      return '<tr class="click" onclick="eventModal(\''+p.ev.id+'\')"><td><b>'+esc(p.ev.company)+'</b><div class="mono">'+p.ev.id+'</div></td>' +
+      return '<tr class="click" onclick="eventModal(\''+p.ev.id+'\')"><td><b>'+esc(p.ev.company)+'</b>'+evNameLine(p.ev)+'<div class="mono">'+p.ev.id+'</div></td>' +
         '<td><span class="pill" style="color:'+STAGE_COLOR[p.stage]+'">'+esc(stageLabel(p.stage))+'</span></td><td>'+esc(p.step)+'</td>' +
         '<td>'+esc(p.doer||'—')+'</td><td class="small">'+fmt(p.planned)+'</td><td class="'+d.cls+'">'+d.txt+'</td>' +
         '<td onclick="event.stopPropagation()" style="white-space:nowrap">'+stepActions(p)+'</td></tr>'; }).join('') +
@@ -625,7 +631,7 @@ function stepActions(p){
 function markModal(evId, stage, i, val){
   const e = ST.data.events.find(x=>x.id===evId); const step = ST.data.steps[stage][i];
   openModal('<h3>Mark step as '+esc(val)+'</h3>' +
-    '<div class="kv">'+kv('Event', (e?e.company:'')+' ('+evId+')')+kv('Stage', stageLabel(stage))+kv('Step', step.name)+kv('Value', val)+'</div>' +
+    '<div class="kv">'+kv('Event', (e?e.company:'')+' ('+evId+')')+kv('Event name', evName(e))+kv('Stage', stageLabel(stage))+kv('Step', step.name)+kv('Value', val)+'</div>' +
     '<label>Note for Ashwini (optional)</label><textarea id="m_note" placeholder="e.g. Costing sent to client on mail"></textarea>' +
     '<div class="small" style="margin-top:6px">Ashwini gets a popup and updates the FMS. You can undo until she does.</div>' +
     '<div class="actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="m_go" onclick="doMark(\''+evId+'\',\''+stage+'\','+i+',\''+val+'\')">Mark '+esc(val)+'</button></div>');
@@ -642,7 +648,7 @@ function statusPick(sel, evId){
   sel.value = 'Active';                      // stays Active until confirmed
   const e = ST.data.events.find(x=>x.id===evId) || {};
   openModal('<h3>Mark enquiry as Cancelled</h3>' +
-    '<div class="kv">'+kv('Enquiry', (e.company||'')+' ('+evId+')')+kv('Client', e.client||'—')+'</div>' +
+    '<div class="kv">'+kv('Enquiry', (e.company||'')+' ('+evId+')')+kv('Event name', evName(e))+kv('Client', e.client||'—')+'</div>' +
     '<label>Reason (optional)</label><textarea id="m_note" placeholder="e.g. Budget mismatch / client went with another agency"></textarea>' +
     '<div class="small" style="margin-top:6px">It will be hidden from the dashboard for everyone. The FMS row stays as it is.</div>' +
     '<div class="actions"><button class="btn ghost" onclick="closeModal()">Close</button><button class="btn" id="m_go" style="background:var(--late);border-color:var(--late)" onclick="doLost(\''+evId+'\')">Mark Cancelled</button></div>');
@@ -659,7 +665,7 @@ function donePick(sel, evId){
   sel.value = 'Active';                      // stays Active until confirmed
   const e = ST.data.events.find(x=>x.id===evId) || {};
   openModal('<h3>Mark event as Done</h3>' +
-    '<div class="kv">'+kv('Event', (e.company||'')+' ('+evId+')')+kv('Client', e.client||'—')+kv('Event date', e.eventDate||'—')+'</div>' +
+    '<div class="kv">'+kv('Event', (e.company||'')+' ('+evId+')')+kv('Event name', evName(e))+kv('Client', e.client||'—')+kv('Event date', e.eventDate||'—')+'</div>' +
     '<label>Note (optional)</label><textarea id="m_note" placeholder="e.g. Event executed, closure pending in FMS"></textarea>' +
     '<div class="small" style="margin-top:6px">It will be hidden from the dashboard for everyone. The FMS rows and steps stay exactly as they are.</div>' +
     '<div class="actions"><button class="btn ghost" onclick="closeModal()">Close</button><button class="btn" id="m_go" onclick="doDone(\''+evId+'\')">Mark Event Done</button></div>');
@@ -686,7 +692,7 @@ function followItems(){
   pendingSteps(true).forEach(p=>{
     const w = when(p.planned); if(!w) return;
     const left = p.doer && (ST.boot.inactiveNames||[]).includes(nameN(p.doer));
-    out.push({ who:p.doer ? p.doer+(left?' (left company — reassign in FMS)':'') : '(No doer in FMS)', type:'fms', w, planned:p.planned, title:p.step, sub:stageLabel(p.stage)+' · '+p.ev.company+' ('+p.ev.id+')', status:'', ev:p.ev.id });
+    out.push({ who:p.doer ? p.doer+(left?' (left company — reassign in FMS)':'') : '(No doer in FMS)', type:'fms', w, planned:p.planned, title:p.step, sub:stageLabel(p.stage)+' · '+p.ev.company+(evName(p.ev)?' – '+evName(p.ev):'')+' ('+p.ev.id+')', status:'', ev:p.ev.id });
   });
   return out;
 }
@@ -705,7 +711,7 @@ function renderFollow(){
   const mks = (ST.data.marks||[]).filter(m=>!m.synced && ST.data.events.some(e=>e.id===m.eventId)).sort((a,b)=>a.at-b.at);
   const marksHtml = '<div class="panel" style="margin-bottom:14px"><h4 style="background:#1d5fa8">Marked in dashboard · update the FMS<small>'+mks.length+' pending</small></h4>' +
     '<div class="tablewrap" style="border:0;border-radius:0;max-height:300px"><table><thead><tr><th>Event</th><th>Stage</th><th>Step</th><th>Marked</th><th>By</th><th>Marked at</th><th>Note</th><th></th></tr></thead><tbody>' +
-    (mks.length ? mks.map(m=>'<tr class="click" onclick="eventModal(\''+m.eventId+'\')"><td><b>'+esc(m.company)+'</b><div class="mono">'+m.eventId+'</div></td>' +
+    (mks.length ? mks.map(m=>'<tr class="click" onclick="eventModal(\''+m.eventId+'\')"><td><b>'+esc(m.company)+'</b>'+evNameLine({eventName:evNameById(m.eventId)})+'<div class="mono">'+m.eventId+'</div></td>' +
       '<td><span class="pill" style="color:'+STAGE_COLOR[m.stage]+'">'+esc(stageLabel(m.stage))+'</span></td><td>'+esc(m.step)+'</td>' +
       '<td><span class="c mk">'+esc(m.value)+'</span></td><td>'+esc(m.byName)+'</td><td class="small">'+fmt(m.at)+'</td><td class="small">'+esc(m.note||'—')+'</td>' +
       '<td onclick="event.stopPropagation()"><button class="btn ghost sm" onclick="doUndo(\''+m.id+'\')">Undo</button></td></tr>').join('')
@@ -813,7 +819,7 @@ function taskModal(type){
     const ppl = ST.boot.allocTargets || [];
     openModal('<h3>Allocate enquiry</h3>' + sel +
       (list.length
-        ? '<label>Enquiry</label><select id="m_ev">'+list.map(e=>'<option value="'+e.id+'">'+esc(e.id+' · '+e.company+(e.client?' ('+e.client+')':'')+
+        ? '<label>Enquiry</label><select id="m_ev">'+list.map(e=>'<option value="'+e.id+'">'+esc(e.id+' · '+e.company+(evName(e)?' – '+evName(e):'')+(e.client?' ('+e.client+')':'')+
             (e.allocName?' — allocated: '+e.allocName:'')+(e.lead?' — FMS: '+e.lead:''))+'</option>').join('')+'</select>' +
           '<label>Allocate to</label><select id="m_to">'+ppl.map(p=>'<option value="'+p.id+'">'+esc(p.name)+'</option>').join('')+'</select>' +
           '<label>Note (optional)</label><input id="m_re" placeholder="e.g. Client prefers a call after 4 pm">' +
