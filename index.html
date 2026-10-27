@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>CRES Task Dashboard</title>
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#14565b">
+<meta name="theme-color" content="#1f2937">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -136,6 +136,55 @@
   body.mobile .wrap{padding:12px} body.mobile .tab{padding:6px 10px;font-size:13px} body.mobile .card .n{font-size:18px} body.mobile .card{padding:10px}
   body.mobile .grid .ev{min-width:140px;max-width:150px} body.mobile header select{max-width:100%}
   body.mobile .box{max-width:370px}
+
+  /* ===== Office theme: neutral, flat, minimal colour (colour only where it means something) ===== */
+  :root{
+    --brand:#1f2937; --bg:#f3f4f6; --ink:#111827; --muted:#6b7280; --line:#d9dce1;
+    --late:#b42318; --lateBg:#fdf1f0; --ok:#1f6f43; --okBg:#eef6f1; --due:#8a5a00; --dueBg:#fbf6ea;
+    --up:#4b5563; --upBg:#f3f4f6; --chip:#f3f4f6;
+    --L2O:#374151; --O2D:#374151; --PE:#374151;
+  }
+  body{font-family:"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:13.5px}
+  header{background:#fff;color:var(--ink);border-bottom:1px solid var(--line);box-shadow:none}
+  header .who,header .sync{opacity:1;color:var(--muted)}
+  header select{border:1px solid var(--line)}
+  .iconbtn{background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:4px;font-weight:500}
+  .iconbtn:hover{background:#f3f4f6}
+  .badge{background:var(--late);top:-7px;right:-7px}
+  .testtag{background:#fff;color:var(--late);border:1px solid var(--late);border-radius:3px}
+  .bar{gap:0;border-bottom:1px solid var(--line);margin-bottom:14px}
+  .tab{border:0;border-bottom:2px solid transparent;border-radius:0;background:transparent;color:var(--muted);font-weight:600;padding:9px 14px;margin-bottom:-1px}
+  .tab:hover{color:var(--ink)}
+  .tab.on{background:transparent;color:var(--ink);border-bottom-color:var(--ink)}
+  .scope{border-radius:4px;margin-bottom:6px} .scope button{padding:6px 12px}
+  .scope button.on{background:var(--brand);color:#fff}
+  .bar > .btn{margin-bottom:6px;margin-left:8px}
+  .btn{border-radius:4px;font-weight:600;background:var(--brand);border-color:var(--brand)}
+  .btn.ghost{background:#fff;color:var(--ink);border-color:var(--line)}
+  .btn.red,#m_go[style*="--late"]{background:#fff !important;color:var(--late) !important;border-color:var(--late) !important}
+  .card{border-radius:4px;box-shadow:none}
+  .card .n{font-weight:600;color:var(--ink)} .card.ok .n{color:var(--ink)} .card.late .n{color:var(--late)}
+  .panel,.tablewrap,.box{border-radius:4px}
+  .panel h4{background:#f9fafb !important;color:var(--ink);border-bottom:1px solid var(--line);font-size:13px;font-weight:600}
+  .panel h4 small{color:var(--muted);opacity:1}
+  th{background:#f9fafb;color:#4b5563}
+  tr.click:hover td{background:#f6f7f9}
+  .pill{border-radius:3px;font-weight:500;background:#f3f4f6;color:#374151}
+  .pill[style]{color:#374151 !important;background:#f3f4f6}
+  .tag{border-radius:3px}
+  .tag.new{background:#fff;color:#374151;border:1px solid #9ca3af} .tag.new.stale{background:#fff;color:var(--late);border-color:var(--late)}
+  .s-pending,.s-inprogress,.s-onhold{background:#f3f4f6;color:#374151}
+  .s-done{background:var(--okBg);color:var(--ok)} .s-cancelled{background:#f3f4f6;color:#6b7280}
+  select.st{border-radius:4px}
+  .estat,.filters select,.filters input{border-radius:4px}
+  .typesel button{border-radius:4px} .typesel button.on{background:#f3f4f6;color:var(--ink);border-color:var(--ink)}
+  .grid thead tr:first-child th{background:#eceef1 !important;color:#111827 !important;border-bottom:1px solid var(--line)}
+  .c{border-radius:3px;font-weight:500}
+  .c.mk{background:#fff;color:#374151;border:1px dashed #6b7280}
+  .box h3{color:var(--ink)}
+  .pop .box{border-top:3px solid var(--brand)}
+  .toast{border-radius:4px}
+  .modal{background:rgba(17,24,39,.4)}
 </style>
 </head>
 <body>
@@ -147,9 +196,9 @@
   <span class="sp"></span>
   <span class="sync" id="sync"></span>
   <span id="viewas"></span>
-  <button class="iconbtn" id="viewbtn" onclick="toggleView()" title="Preview how the dashboard looks on a phone">📱 Mobile view</button>
-  <button class="iconbtn" onclick="reopenNotifs()" title="Notifications">🔔<span id="bellc"></span></button>
-  <button class="iconbtn" id="refbtn" onclick="hardRefresh()" title="Refresh from FMS now">⟳</button>
+  <button class="iconbtn" id="viewbtn" onclick="toggleView()" title="Preview how the dashboard looks on a phone">Mobile view</button>
+  <button class="iconbtn" onclick="reopenNotifs()" title="Notifications">Notifications<span id="bellc"></span></button>
+  <button class="iconbtn" id="refbtn" onclick="hardRefresh()" title="Refresh from FMS now">Refresh</button>
 </header>
 
 <div class="wrap">
@@ -279,7 +328,7 @@ function renderHeader(){
   const m = me();
   $('#who').innerHTML = '<b>'+esc(m.name)+'</b> · '+esc(m.roleLabel)+' · '+esc(m.id);
   $('#testtag').innerHTML = ST.boot.test ? '<span class="testtag">TEST MODE</span>' : '';
-  if(ST.boot.pinUser) $('#who').innerHTML += ' · <a href="#" style="color:#fff" onclick="logout();return false">Log out</a>';
+  if(ST.boot.pinUser) $('#who').innerHTML += ' · <a href="#" style="color:inherit" onclick="logout();return false">Log out</a>';
   $('#viewas').innerHTML = ST.boot.test
     ? 'View as: <select onchange="switchUser(this.value)">' +
         ST.boot.people.map(p=>'<option value="'+p.id+'" '+(p.id===m.id?'selected':'')+'>'+esc(p.name)+' — '+esc(p.roleLabel)+'</option>').join('') +
@@ -668,7 +717,7 @@ function confirmPick(evId){
     '<div class="kv">'+kv('Enquiry', (e.company||'')+' ('+evId+')')+kv('Event name', evName(e))+kv('Client', e.client||'—')+kv('Event date', e.eventDate||'—')+'</div>' +
     '<label>Note for Ashwini (optional)</label><textarea id="m_note" placeholder="e.g. PO received on mail"></textarea>' +
     '<div class="small" style="margin-top:6px">It moves to Confirmed Events on the Dashboard. Ashwini is notified to set <b>Event Confirmed = Yes</b> in the enquiry form, which creates it in Order to Delivery + Post Event. This cannot be changed back from the dashboard.</div>' +
-    '<div class="actions"><button class="btn ghost" onclick="closeModal()">Close</button><button class="btn" id="m_go" style="background:var(--ok);border-color:var(--ok)" onclick="doConfirm(\''+evId+'\')">Mark Confirmed</button></div>');
+    '<div class="actions"><button class="btn ghost" onclick="closeModal()">Close</button><button class="btn" id="m_go" onclick="doConfirm(\''+evId+'\')">Mark Confirmed</button></div>');
   setTimeout(()=>{ const t = $('#m_note'); if(t) t.focus(); }, 50);
 }
 async function doConfirm(evId){
@@ -739,7 +788,7 @@ function renderFollow(){
       '<td onclick="event.stopPropagation()"><button class="btn ghost sm" onclick="doUndo(\''+m.id+'\')">Undo</button></td></tr>').join('')
       : '<tr><td colspan="8" class="small">Nothing to update — all marks are in the FMS.</td></tr>') +
     '</tbody></table></div><div class="small" style="padding:6px 12px">An entry disappears by itself once the FMS shows the step as Done / Yes / No.</div></div>';
-  if(!list.length){ $('#view').innerHTML = marksHtml + '<div class="tablewrap"><div class="empty">Nothing overdue or due today. 🎉</div></div>'; return; }
+  if(!list.length){ $('#view').innerHTML = marksHtml + '<div class="tablewrap"><div class="empty">Nothing overdue or due today.</div></div>'; return; }
   const groups = {};
   list.forEach(x=>{ (groups[x.who] = groups[x.who] || []).push(x); });
   const NOD = '(No doer in FMS)';
@@ -775,7 +824,7 @@ function renderConfirmations(){
     (list.length ? list.map((c,n)=>'<tr class="click" onclick="eventModal(\''+c.id+'\')"><td class="srn">'+(n+1)+'</td>' +
       '<td><b>'+esc(c.company)+'</b>'+evNameLine(c)+'<div class="mono">'+c.id+'</div></td><td>'+esc(c.client||'—')+'</td><td>'+esc(c.eventDate||'—')+'</td>' +
       '<td>'+esc(c.byName||'—')+'</td><td class="small">'+fmt(c.at)+'</td><td class="small">'+esc(c.note||'—')+'</td></tr>').join('')
-      : '<tr><td colspan="7"><div class="empty">Nothing pending — every confirmed enquiry is in Order to Delivery. 🎉</div></td></tr>') +
+      : '<tr><td colspan="7"><div class="empty">Nothing pending — every confirmed enquiry is in Order to Delivery.</div></td></tr>') +
     '</tbody></table></div>';
 }
 
@@ -810,7 +859,7 @@ function renderTasksTable(){
   list.forEach(t=>{
     const d = delayOf(t.planned, t.actual, t.status==='Cancelled');
     h += '<tr><td class="mono">'+esc(t.id)+'</td>' +
-      '<td><b>'+esc(t.title)+'</b>'+(t.desc?'<div class="small">'+esc(t.desc)+'</div>':'')+(t.remark?'<div class="small">📝 '+esc(t.remark)+'</div>':'')+'</td>' +
+      '<td><b>'+esc(t.title)+'</b>'+(t.desc?'<div class="small">'+esc(t.desc)+'</div>':'')+(t.remark?'<div class="small">Remark: '+esc(t.remark)+'</div>':'')+'</td>' +
       '<td>'+esc(t.toName)+'</td><td>'+esc(t.byName)+'</td><td class="small">'+esc(t.tatValue)+' '+esc(t.tatUnit)+'</td>' +
       '<td class="small">'+fmt(t.planned)+'</td><td class="small">'+fmt(t.actual)+'</td><td class="'+d.cls+'">'+d.txt+'</td>' +
       '<td>'+statusCell(t)+'</td><td>'+(t.canManage?'<button class="btn ghost sm" onclick="editModal(\''+t.id+'\')">Edit</button>':'')+'</td></tr>';
@@ -925,7 +974,7 @@ function showNextPop(){
   if(!n) return;
   ST.popOpen = n.id;
   const enq = /^EVT-/i.test(n.taskId||''), stp = /^STEP-/i.test(n.taskId||''), cnf = /^CONF-/i.test(n.taskId||'');
-  $('#popBox').innerHTML = '<h3>'+(cnf?'🎉 Enquiry confirmed — update the enquiry form':stp?'🔔 FMS step marked — update the FMS':enq?'📋 Enquiry allocated to you':'✅ Task complete')+'</h3><div class="msg">'+esc(n.msg)+'</div>' +
+  $('#popBox').innerHTML = '<h3>'+(cnf?'Enquiry confirmed — update the enquiry form':stp?'FMS step marked — update the FMS':enq?'Enquiry allocated to you':'Task complete')+'</h3><div class="msg">'+esc(n.msg)+'</div>' +
     '<div class="small" style="margin-top:6px">'+esc(n.taskId)+' · '+fmt(n.at)+'</div>' +
     '<div class="actions"><button class="btn ghost" onclick="snoozePop()">Later</button><button class="btn" onclick="ackPop()">OK</button></div>';
   $('#pop').classList.remove('hidden');
@@ -983,7 +1032,7 @@ async function logout(){
 function toggleView(){
   const on = !document.body.classList.contains('mobile');
   document.body.classList.toggle('mobile', on);
-  $('#viewbtn').textContent = on ? '🖥 Desktop view' : '📱 Mobile view';
+  $('#viewbtn').textContent = on ? 'Desktop view' : 'Mobile view';
   try{ localStorage.setItem('cresView', on ? 'mobile' : 'desktop'); }catch(e){}
 }
 try{ if(localStorage.getItem('cresView')==='mobile') toggleView(); }catch(e){}
