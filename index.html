@@ -331,6 +331,10 @@ function renderInner(){
   // Your Tasks is the first tab (opens by default), then Dashboard
   const tabs = [['fms','Your Tasks'],['dash','Dashboard'],['tracker','Event Tracker'],['tasks','One-off Tasks']];
   if(me().isPC) tabs.splice(1, 0, ['follow','Follow-ups']);
+  if(me().isPC || me().owner || me().isMIS){
+    const nc = (ST.data.confirmations||[]).length;
+    tabs.splice(me().isPC ? 2 : 1, 0, ['conf','Confirmations'+(nc?' ('+nc+')':'')]);
+  }
   if(!tabs.some(t=>t[0]===ST.tab)) ST.tab = tabs[0][0];
   let h = tabs.map(t=>'<button class="tab '+(t[0]===ST.tab?'on':'')+'" onclick="goTab(\''+t[0]+'\')">'+t[1]+'</button>').join('');
   h += '<span style="flex:1"></span>';
@@ -341,7 +345,7 @@ function renderInner(){
   if(me().canAssign) h += '<button class="btn" onclick="taskModal()">+ New</button>';
   $('#tabs').innerHTML = h;
   renderCards();
-  ({dash:renderDash, tracker:renderTracker, tasks:renderTasks, fms:renderFms, follow:renderFollow})[ST.tab]();
+  ({dash:renderDash, tracker:renderTracker, tasks:renderTasks, fms:renderFms, follow:renderFollow, conf:renderConfirmations})[ST.tab]();
 }
 
 /* ---------------- All / Mine scope (for people who can see everything) ---------------- */
@@ -370,6 +374,7 @@ function allPendingSteps(){
       const cells = ev.cells[k]; if(!cells) return;
       cells.forEach((x,i)=>{
         if(x[0]!=='pending') return;
+        if(markFor(ev.id, k, i)) return;          // marked in the dashboard → waits for Ashwini, not in anyone's task list
         out.push({ ev, stage:k, stepNo:i, kind:ST.data.steps[k][i].kind, step:ST.data.steps[k][i].name, planned:x[1], doer:x[4] });
       });
     });
@@ -390,13 +395,15 @@ function renderCards(){
   // "My tasks overdue" counts the same tasks the Your Tasks tab shows for this person:
   // admins (owner/PC) see everyone's; every other person sees only their own.
   const myPend = myPendingSteps();
-  const ong = evs.filter(e=>e.phase==='Ongoing').length;
-  const conf = evs.filter(e=>e.phase==='Confirmed').length;
+  const ong = evs.filter(e=>!isConf(e)).length;
+  const conf = evs.filter(isConf).length;
   $('#cards').innerHTML =
     card(ong,'Ongoing enquiries','') + card(conf,'Confirmed events','ok') +
     card(myPend.filter(p=>p.planned < now()).length, isTaskAdmin()?'Tasks overdue':'My tasks overdue','late') +
     card(tasks.filter(isOpen).length + ' / ' + tasks.filter(isLate).length, 'Open / overdue tasks','');
 }
+// Confirmed on the Dashboard tab = in Order-to-Delivery FMS, or marked Confirmed on the dashboard
+function isConf(e){ return e.phase==='Confirmed' || !!e.dashConfirmed; }
 function card(n,l,c){ return '<div class="card '+c+'"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>'; }
 function tags(e){
   let nw = '';
@@ -418,14 +425,15 @@ function evNameById(id){ return evName((ST.data.events||[]).find(x=>x.id===id));
 function renderDash(){
   $('#filters').innerHTML = '';
   const evs = EVS();
-  const conf = evs.filter(e=>e.phase==='Confirmed');
-  const ong  = evs.filter(e=>e.phase==='Ongoing');
+  const conf = evs.filter(isConf);
+  const ong  = evs.filter(e=>!isConf(e));
   const tasks = myTaskList().filter(isOpen).sort((a,b)=>(a.planned||0)-(b.planned||0));
 
   const p1 = panel('Confirmed Events', 'Order to Delivery FMS', 'var(--O2D)',
     '<table><thead><tr><th>Status</th><th>Event ID</th><th>Company</th><th>Event Name</th><th>Client</th><th>Event Date</th><th>Allocated to</th></tr></thead><tbody>' +
       conf.map(e=>'<tr class="click" onclick="eventModal(\''+e.id+'\')">' +
-        '<td onclick="event.stopPropagation()"><select class="estat" onchange="donePick(this,\''+e.id+'\')"><option selected>Active</option><option>Event Done</option></select></td>' +
+        '<td onclick="event.stopPropagation()"><select class="estat" onchange="donePick(this,\''+e.id+'\')"><option selected>Active</option><option>Event Done</option></select>' +
+          (e.dashConfirmed ? '<div class="small muted" title="Confirmed on the dashboard — Order to Delivery FMS not created yet">Form update pending</div>' : '') + '</td>' +
         '<td class="mono">'+e.id+'</td><td><b>'+esc(e.company)+'</b>'+
         '</td><td>'+evNameCell(e)+'</td><td>'+esc(e.client)+'</td><td>'+esc(e.eventDate||'—')+'</td><td>'+leadCell(e)+'</td></tr>').join('') +
       '</tbody></table>');
@@ -433,7 +441,7 @@ function renderDash(){
   const p2 = panel('Ongoing Enquiries', 'Lead to Order FMS', 'var(--L2O)',
     '<table><thead><tr><th class="srn">Sr.</th><th>Status</th><th>Client</th><th>Company</th><th>Event Name</th><th>Approx Event Date</th></tr></thead><tbody>' +
       ong.map((e,n)=>'<tr class="click" onclick="eventModal(\''+e.id+'\')"><td class="srn">'+(n+1)+'</td>' +
-        '<td onclick="event.stopPropagation()"><select class="estat" onchange="statusPick(this,\''+e.id+'\')"><option selected>Active</option><option>Cancelled</option></select></td>' +
+        '<td onclick="event.stopPropagation()"><select class="estat" onchange="statusPick(this,\''+e.id+'\')"><option selected>Active</option>'+(me().canConfirm?'<option>Confirmed</option>':'')+'<option>Cancelled</option></select></td>' +
         '<td>'+esc(e.client)+'</td><td><b>'+esc(e.company)+'</b>'+
         tags(e)+'<div class="mono">'+e.id+(e.lead?' · '+esc(e.lead):'')+'</div></td><td>'+evNameCell(e)+'</td><td>'+esc(e.eventDate||'—')+'</td></tr>').join('') +
       '</tbody></table>');
@@ -458,17 +466,15 @@ function renderDash(){
         '</tbody></table>');
   }
 
-  // All: every panel. Mine: hide empty event panels and the allocation panel when nothing is allocated;
-  // One-off Tasks always stays. Columns keep their normal width and shift to the left.
+  // Layout: top row = Confirmed Events (+ Enquiry Allocations under it, only when something is allocated) | Ongoing Enquiries;
+  // One-off Tasks below, full width. Mine: empty event panels are hidden and the rest stay left-aligned at the same size.
   const mine = scopeMine();
-  const cols = [
-    { w:1.15, html: (!mine || conf.length) ? p1 : '' },
-    { w:1,    html: ((!mine || ong.length) ? p2 : '') + ((!mine || p5Rows) ? p5 : '') },
-    { w:1.15, html: p3 }
-  ].filter(c=>c.html);
-  const used = cols.reduce((a,c)=>a+c.w, 0), spare = +(3.3 - used).toFixed(2);
-  const tpl = cols.map(c=>c.w+'fr').join(' ') + (spare > 0 ? ' '+spare+'fr' : '');
-  $('#view').innerHTML = '<div class="panels" style="--cols:'+tpl+'">' + cols.map(c=>'<div class="col">'+c.html+'</div>').join('') + '</div>';
+  const left  = ((!mine || conf.length) ? p1 : '') + ((!mine || p5Rows) ? p5 : '');
+  const right = (!mine || ong.length) ? p2 : '';
+  const top = [left, right].filter(Boolean);
+  $('#view').innerHTML =
+    (top.length ? '<div class="panels" style="--cols:1fr 1fr">' + top.map(x=>'<div class="col">'+x+'</div>').join('') + '</div>' : '') +
+    '<div class="panels" style="--cols:1fr;margin-top:12px"><div class="col">'+p3+'</div></div>';
 }
 function panel(title, sub, color, body){
   return '<div class="panel"><h4 style="background:'+color+'">'+title+'<small>'+sub+'</small></h4><div class="scroll">'+body+'</div></div>';
@@ -621,7 +627,7 @@ function renderFms(){
 function stepActions(p){
   const mk = markFor(p.ev.id, p.stage, p.stepNo);
   if(mk){
-    const canUndo = mk.by===me().id || me().owner || me().isPC;
+    const canUndo = me().isPC;
     return '<span class="c mk">✓ '+esc(mk.value)+'</span><div class="small">by '+esc(mk.byName)+' · '+fmt(mk.at)+'<br>waiting for FMS update</div>' +
       (canUndo ? '<button class="btn ghost sm" style="margin-top:4px" onclick="doUndo(\''+mk.id+'\')">Undo</button>' : '');
   }
@@ -633,17 +639,18 @@ function markModal(evId, stage, i, val){
   openModal('<h3>Mark step as '+esc(val)+'</h3>' +
     '<div class="kv">'+kv('Event', (e?e.company:'')+' ('+evId+')')+kv('Event name', evName(e))+kv('Stage', stageLabel(stage))+kv('Step', step.name)+kv('Value', val)+'</div>' +
     '<label>Note for Ashwini (optional)</label><textarea id="m_note" placeholder="e.g. Costing sent to client on mail"></textarea>' +
-    '<div class="small" style="margin-top:6px">Ashwini gets a popup and updates the FMS. You can undo until she does.</div>' +
+    '<div class="small" style="margin-top:6px">Ashwini gets a popup and updates the FMS. The task leaves your list now — to undo, ask Ashwini.</div>' +
     '<div class="actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="m_go" onclick="doMark(\''+evId+'\',\''+stage+'\','+i+',\''+val+'\')">Mark '+esc(val)+'</button></div>');
   setTimeout(()=>{ const t = $('#m_note'); if(t) t.focus(); }, 50);
 }
 async function doMark(evId, stage, i, val){
   $('#m_go').disabled = true;
-  try{ await run('markStep', AUTH(), evId, stage, i, val, $('#m_note').value); closeModal(); toast('Marked '+val+' — Ashwini notified'); await load(); }
+  try{ await run('markStep', AUTH(), evId, stage, i, val, $('#m_note').value); closeModal(); toast('Marked '+val+' — sent to Ashwini'); await load(); }
   catch(e){ const b = $('#m_go'); if(b) b.disabled = false; }
 }
 /* ---------------- Enquiry status: Cancelled hides the enquiry from the dashboard (FMS untouched) ---------------- */
 function statusPick(sel, evId){
+  if(sel.value === 'Confirmed'){ sel.value = 'Active'; return confirmPick(evId); }
   if(sel.value !== 'Cancelled') return;
   sel.value = 'Active';                      // stays Active until confirmed
   const e = ST.data.events.find(x=>x.id===evId) || {};
@@ -653,6 +660,21 @@ function statusPick(sel, evId){
     '<div class="small" style="margin-top:6px">It will be hidden from the dashboard for everyone. The FMS row stays as it is.</div>' +
     '<div class="actions"><button class="btn ghost" onclick="closeModal()">Close</button><button class="btn" id="m_go" style="background:var(--late);border-color:var(--late)" onclick="doLost(\''+evId+'\')">Mark Cancelled</button></div>');
   setTimeout(()=>{ const t = $('#m_note'); if(t) t.focus(); }, 50);
+}
+/* ---------------- Enquiry confirmed on the dashboard → Confirmed Events + Ashwini updates the form ---------------- */
+function confirmPick(evId){
+  const e = ST.data.events.find(x=>x.id===evId) || {};
+  openModal('<h3>Mark enquiry as Confirmed</h3>' +
+    '<div class="kv">'+kv('Enquiry', (e.company||'')+' ('+evId+')')+kv('Event name', evName(e))+kv('Client', e.client||'—')+kv('Event date', e.eventDate||'—')+'</div>' +
+    '<label>Note for Ashwini (optional)</label><textarea id="m_note" placeholder="e.g. PO received on mail"></textarea>' +
+    '<div class="small" style="margin-top:6px">It moves to Confirmed Events on the Dashboard. Ashwini is notified to set <b>Event Confirmed = Yes</b> in the enquiry form, which creates it in Order to Delivery + Post Event. This cannot be changed back from the dashboard.</div>' +
+    '<div class="actions"><button class="btn ghost" onclick="closeModal()">Close</button><button class="btn" id="m_go" style="background:var(--ok);border-color:var(--ok)" onclick="doConfirm(\''+evId+'\')">Mark Confirmed</button></div>');
+  setTimeout(()=>{ const t = $('#m_note'); if(t) t.focus(); }, 50);
+}
+async function doConfirm(evId){
+  $('#m_go').disabled = true;
+  try{ await run('setEnquiryStatus', AUTH(), evId, 'Confirmed', $('#m_note').value); closeModal(); toast('Enquiry marked Confirmed — Ashwini notified'); await load(); }
+  catch(e){ const b = $('#m_go'); if(b) b.disabled = false; }
 }
 async function doLost(evId){
   $('#m_go').disabled = true;
@@ -742,6 +764,19 @@ function renderFollow(){
           '<td>'+(x.status?'<span class="pill '+sCls(x.status)+'">'+esc(x.status)+'</span>':'<span class="small">in FMS</span>')+'</td></tr>').join('') +
         '</tbody></table></div></div>';
     }).join('');
+}
+
+/* ---------------- Confirmations: confirmed on the dashboard → set "Event Confirmed = Yes" in the form ---------------- */
+function renderConfirmations(){
+  $('#filters').innerHTML = '';
+  const list = ST.data.confirmations || [];
+  $('#view').innerHTML = '<div class="small" style="margin-bottom:6px">Enquiries confirmed on the dashboard. Set <b>Event Confirmed = Yes</b> in <b>CRES Enquiry Capture Form Responses</b> — once the event appears in Order to Delivery it leaves this list by itself.</div>' +
+    '<div class="tablewrap"><table><thead><tr><th class="srn">Sr.</th><th>Event</th><th>Client</th><th>Event Date</th><th>Confirmed by</th><th>Confirmed at</th><th>Note</th></tr></thead><tbody>' +
+    (list.length ? list.map((c,n)=>'<tr class="click" onclick="eventModal(\''+c.id+'\')"><td class="srn">'+(n+1)+'</td>' +
+      '<td><b>'+esc(c.company)+'</b>'+evNameLine(c)+'<div class="mono">'+c.id+'</div></td><td>'+esc(c.client||'—')+'</td><td>'+esc(c.eventDate||'—')+'</td>' +
+      '<td>'+esc(c.byName||'—')+'</td><td class="small">'+fmt(c.at)+'</td><td class="small">'+esc(c.note||'—')+'</td></tr>').join('')
+      : '<tr><td colspan="7"><div class="empty">Nothing pending — every confirmed enquiry is in Order to Delivery. 🎉</div></td></tr>') +
+    '</tbody></table></div>';
 }
 
 /* ---------------- one-off tasks ---------------- */
@@ -889,8 +924,8 @@ function showNextPop(){
   const n = (ST.notifs||[]).find(x=>!ST.snooze[x.id]);
   if(!n) return;
   ST.popOpen = n.id;
-  const enq = /^EVT-/i.test(n.taskId||''), stp = /^STEP-/i.test(n.taskId||'');
-  $('#popBox').innerHTML = '<h3>'+(stp?'🔔 FMS step marked — update the FMS':enq?'📋 Enquiry allocated to you':'✅ Task complete')+'</h3><div class="msg">'+esc(n.msg)+'</div>' +
+  const enq = /^EVT-/i.test(n.taskId||''), stp = /^STEP-/i.test(n.taskId||''), cnf = /^CONF-/i.test(n.taskId||'');
+  $('#popBox').innerHTML = '<h3>'+(cnf?'🎉 Enquiry confirmed — update the enquiry form':stp?'🔔 FMS step marked — update the FMS':enq?'📋 Enquiry allocated to you':'✅ Task complete')+'</h3><div class="msg">'+esc(n.msg)+'</div>' +
     '<div class="small" style="margin-top:6px">'+esc(n.taskId)+' · '+fmt(n.at)+'</div>' +
     '<div class="actions"><button class="btn ghost" onclick="snoozePop()">Later</button><button class="btn" onclick="ackPop()">OK</button></div>';
   $('#pop').classList.remove('hidden');
