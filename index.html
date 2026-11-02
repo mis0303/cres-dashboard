@@ -441,7 +441,7 @@ function renderCards(){
   // "My tasks overdue" counts the same tasks the Your Tasks tab shows for this person:
   // admins (owner/PC) see everyone's; every other person sees only their own.
   const myPend = myPendingSteps();
-  const ong = evs.filter(e=>!isConf(e)).length;
+  const ong = evs.filter(isOngoing).length;
   const conf = evs.filter(isConf).length;
   $('#cards').innerHTML =
     card(ong,'Ongoing enquiries','',"cardGo('tracker','phase','Ongoing')") +
@@ -453,6 +453,14 @@ function renderCards(){
 function cardGo(tab, key, val){ ST.f[key] = val; if(tab==='fms'){ ST.f.fwho=''; ST.f.fev=''; } goTab(tab); }
 // Confirmed on the Dashboard tab = in Order-to-Delivery FMS, or marked Confirmed on the dashboard
 function isConf(e){ return e.phase==='Confirmed' || !!e.dashConfirmed; }
+// Ongoing = not confirmed AND no confirmed event with the same Event ID number
+// (stops one event showing in both lists when an FMS/form writes its ID differently, e.g. EVT-099 vs EVT-0099)
+function isOngoing(e){
+  if(isConf(e)) return false;
+  const d = ST.data;
+  if(d._confNumsFor !== d.events){ d._confNums = new Set((d.events||[]).filter(isConf).map(x=>x.num)); d._confNumsFor = d.events; }
+  return !d._confNums.has(e.num);
+}
 function card(n,l,c,go){ return '<div class="card '+c+(go?' go':'')+'"'+(go?' onclick="'+go+'" title="Click to open"':'')+'><div class="n">'+n+'</div><div class="l">'+l+'</div></div>'; }
 function tags(e){
   let nw = '';
@@ -475,7 +483,7 @@ function renderDash(){
   $('#filters').innerHTML = '';
   const evs = EVS();
   const conf = evs.filter(isConf);
-  const ong  = evs.filter(e=>!isConf(e));
+  const ong  = evs.filter(isOngoing);
   const tasks = myTaskList().filter(isOpen).sort((a,b)=>(a.planned||0)-(b.planned||0));
 
   const p1 = panel('Confirmed Events', 'Order to Delivery FMS', 'var(--O2D)',
@@ -568,7 +576,7 @@ function renderTrackerTable(){
   const f = ST.f, q = f.q.trim().toLowerCase(), steps = ST.data.steps;
   const evs = trackEVS().filter(e=>{
     if(f.phase==='Confirmed' && !isConf(e)) return false;
-    if(f.phase==='Ongoing' && isConf(e)) return false;
+    if(f.phase==='Ongoing' && !isOngoing(e)) return false;
     if(q && !(e.company+' '+e.id+' '+e.client+' '+evName(e)).toLowerCase().includes(q)) return false;
     return true;
   });
