@@ -44,6 +44,7 @@
   .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
   .card .n{font-size:22px;font-weight:700} .card .l{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
   .card.late .n{color:var(--late)} .card.ok .n{color:var(--ok)}
+  .card.go{cursor:pointer} .card.go:hover{border-color:var(--brand)}
   .srn{width:34px;color:var(--muted);font-weight:600;text-align:center}
   .estat{padding:3px 6px;border:1px solid var(--line);border-radius:6px;font-size:12px;background:#fff}
   .panels{display:grid;grid-template-columns:var(--cols,1.15fr 1fr 1.15fr);gap:12px;align-items:start}
@@ -380,10 +381,6 @@ function renderInner(){
   // Your Tasks is the first tab (opens by default), then Dashboard
   const tabs = [['fms','Your Tasks'],['dash','Dashboard'],['tracker','Event Tracker'],['tasks','One-off Tasks']];
   if(me().isPC) tabs.splice(1, 0, ['follow','Follow-ups']);
-  if(me().isPC || me().owner || me().isMIS){
-    const nc = (ST.data.confirmations||[]).length;
-    tabs.splice(me().isPC ? 2 : 1, 0, ['conf','Confirmations'+(nc?' ('+nc+')':'')]);
-  }
   if(!tabs.some(t=>t[0]===ST.tab)) ST.tab = tabs[0][0];
   let h = tabs.map(t=>'<button class="tab '+(t[0]===ST.tab?'on':'')+'" onclick="goTab(\''+t[0]+'\')">'+t[1]+'</button>').join('');
   h += '<span style="flex:1"></span>';
@@ -394,7 +391,7 @@ function renderInner(){
   if(me().canAssign) h += '<button class="btn" onclick="taskModal()">+ New</button>';
   $('#tabs').innerHTML = h;
   renderCards();
-  ({dash:renderDash, tracker:renderTracker, tasks:renderTasks, fms:renderFms, follow:renderFollow, conf:renderConfirmations})[ST.tab]();
+  ({dash:renderDash, tracker:renderTracker, tasks:renderTasks, fms:renderFms, follow:renderFollow})[ST.tab]();
 }
 
 /* ---------------- All / Mine scope (for people who can see everything) ---------------- */
@@ -447,13 +444,16 @@ function renderCards(){
   const ong = evs.filter(e=>!isConf(e)).length;
   const conf = evs.filter(isConf).length;
   $('#cards').innerHTML =
-    card(ong,'Ongoing enquiries','') + card(conf,'Confirmed events','ok') +
-    card(myPend.filter(p=>p.planned < now()).length, isTaskAdmin()?'Tasks overdue':'My tasks overdue','late') +
-    card(tasks.filter(isOpen).length + ' / ' + tasks.filter(isLate).length, 'Open / overdue tasks','');
+    card(ong,'Ongoing enquiries','',"cardGo('tracker','phase','Ongoing')") +
+    card(conf,'Confirmed events','ok',"cardGo('tracker','phase','Confirmed')") +
+    card(myPend.filter(p=>p.planned < now()).length, isTaskAdmin()?'Tasks overdue':'My tasks overdue','late',"cardGo('fms','fstate','late')") +
+    card(tasks.filter(isOpen).length + ' / ' + tasks.filter(isLate).length, 'Open / overdue tasks','',"cardGo('tasks','tstatus','late')");
 }
+// Summary card click → open that tab with the matching filter already set
+function cardGo(tab, key, val){ ST.f[key] = val; if(tab==='fms'){ ST.f.fwho=''; ST.f.fev=''; } goTab(tab); }
 // Confirmed on the Dashboard tab = in Order-to-Delivery FMS, or marked Confirmed on the dashboard
 function isConf(e){ return e.phase==='Confirmed' || !!e.dashConfirmed; }
-function card(n,l,c){ return '<div class="card '+c+'"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>'; }
+function card(n,l,c,go){ return '<div class="card '+c+(go?' go':'')+'"'+(go?' onclick="'+go+'" title="Click to open"':'')+'><div class="n">'+n+'</div><div class="l">'+l+'</div></div>'; }
 function tags(e){
   let nw = '';
   if(e.isNew && e.phase==='Ongoing'){
@@ -482,7 +482,8 @@ function renderDash(){
     '<table><thead><tr><th>Status</th><th>Event ID</th><th>Company</th><th>Event Name</th><th>Client</th><th>Event Date</th><th>Allocated to</th></tr></thead><tbody>' +
       conf.map(e=>'<tr class="click" onclick="eventModal(\''+e.id+'\')">' +
         '<td onclick="event.stopPropagation()"><select class="estat" onchange="donePick(this,\''+e.id+'\')"><option selected>Active</option><option>Event Done</option></select>' +
-          (e.dashConfirmed ? '<div class="small muted" title="Confirmed on the dashboard — Order to Delivery FMS not created yet">Form update pending</div>' : '') + '</td>' +
+          (e.dashConfirmed ? '<div class="small muted" title="Confirmed on the dashboard — Ashwini to set Event Confirmed = Yes in the enquiry form">Form update pending</div>'
+            : e.inO2D===false ? '<div class="small muted" title="Event Confirmed = Yes in the form — Order to Delivery FMS not created yet">O2D FMS pending</div>' : '') + '</td>' +
         '<td class="mono">'+e.id+'</td><td><b>'+esc(e.company)+'</b>'+
         '</td><td>'+evNameCell(e)+'</td><td>'+esc(e.client)+'</td><td>'+esc(e.eventDate||'—')+'</td><td>'+leadCell(e)+'</td></tr>').join('') +
       '</tbody></table>');
@@ -566,7 +567,8 @@ function renderTracker(){
 function renderTrackerTable(){
   const f = ST.f, q = f.q.trim().toLowerCase(), steps = ST.data.steps;
   const evs = trackEVS().filter(e=>{
-    if(f.phase!=='all' && e.phase!==f.phase) return false;
+    if(f.phase==='Confirmed' && !isConf(e)) return false;
+    if(f.phase==='Ongoing' && isConf(e)) return false;
     if(q && !(e.company+' '+e.id+' '+e.client+' '+evName(e)).toLowerCase().includes(q)) return false;
     return true;
   });
@@ -813,19 +815,6 @@ function renderFollow(){
           '<td>'+(x.status?'<span class="pill '+sCls(x.status)+'">'+esc(x.status)+'</span>':'<span class="small">in FMS</span>')+'</td></tr>').join('') +
         '</tbody></table></div></div>';
     }).join('');
-}
-
-/* ---------------- Confirmations: confirmed on the dashboard → set "Event Confirmed = Yes" in the form ---------------- */
-function renderConfirmations(){
-  $('#filters').innerHTML = '';
-  const list = ST.data.confirmations || [];
-  $('#view').innerHTML = '<div class="small" style="margin-bottom:6px">Enquiries confirmed on the dashboard. Set <b>Event Confirmed = Yes</b> in <b>CRES Enquiry Capture Form Responses</b> — once the event appears in Order to Delivery it leaves this list by itself.</div>' +
-    '<div class="tablewrap"><table><thead><tr><th class="srn">Sr.</th><th>Event</th><th>Client</th><th>Event Date</th><th>Confirmed by</th><th>Confirmed at</th><th>Note</th></tr></thead><tbody>' +
-    (list.length ? list.map((c,n)=>'<tr class="click" onclick="eventModal(\''+c.id+'\')"><td class="srn">'+(n+1)+'</td>' +
-      '<td><b>'+esc(c.company)+'</b>'+evNameLine(c)+'<div class="mono">'+c.id+'</div></td><td>'+esc(c.client||'—')+'</td><td>'+esc(c.eventDate||'—')+'</td>' +
-      '<td>'+esc(c.byName||'—')+'</td><td class="small">'+fmt(c.at)+'</td><td class="small">'+esc(c.note||'—')+'</td></tr>').join('')
-      : '<tr><td colspan="7"><div class="empty">Nothing pending — every confirmed enquiry is in Order to Delivery.</div></td></tr>') +
-    '</tbody></table></div>';
 }
 
 /* ---------------- one-off tasks ---------------- */
