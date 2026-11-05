@@ -40,11 +40,16 @@
   .btn.ghost{background:#fff;color:var(--brand)} .btn.sm{padding:4px 10px;font-size:12px}
   .btn.red{background:var(--late);border-color:var(--late)} .btn:disabled{opacity:.5;cursor:default}
   .errors{background:var(--lateBg);color:var(--late);border:1px solid #f5c6c0;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:13px}
-  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
   .card .n{font-size:22px;font-weight:700} .card .l{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
   .card.late .n{color:var(--late)} .card.ok .n{color:var(--ok)}
   .card.go{cursor:pointer} .card.go:hover{border-color:var(--brand)}
+  .subtabs{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;margin-right:6px}
+  .subtabs button{border:0;background:#fff;padding:6px 12px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;font-family:inherit}
+  .subtabs button.on{background:var(--brand);color:#fff}
+  .evlink{color:var(--brand);text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+  table.lu .lu-text{min-width:260px;white-space:pre-wrap} table.lu tr.lu-done .lu-text{color:var(--muted)}
   .srn{width:34px;color:var(--muted);font-weight:600;text-align:center}
   .estat{padding:3px 6px;border:1px solid var(--line);border-radius:6px;font-size:12px;background:#fff}
   .panels{display:grid;grid-template-columns:var(--cols,1.15fr 1fr 1.15fr);gap:12px;align-items:start}
@@ -217,7 +222,7 @@
 
 <script>
 const ST = { viewAs:null, boot:null, data:null, tab:null, off:0, ver:0, snooze:{}, popOpen:false,
-             f:{ tstatus:'open', who:'', q:'', phase:'all', fwho:'', fev:'', fstate:'pending', cell:'', fuWhen:'both', fuType:'all', fuWho:'' } };
+             f:{ tstatus:'open', who:'', q:'', phase:'all', fwho:'', fev:'', fstate:'pending', cell:'', fuWhen:'both', fuType:'all', fuWho:'', lwhen:'month', lwho:'', lev:'', lst:'', lq:'', ywho:'', yev:'', yq:'' }, yt:'fms' };
 const $ = s => document.querySelector(s);
 let TOKEN = '';
 try{ ST.scope = localStorage.getItem('cresScope') || 'all'; }catch(e){ ST.scope = 'all'; }
@@ -379,8 +384,9 @@ function renderInner(){
   $('#errors').innerHTML = (d.errors||[]).length
     ? '<div class="errors"><b>Source read error:</b> '+d.errors.map(esc).join(' · ')+'</div>' : '';
   // Your Tasks is the first tab (opens by default), then Dashboard
-  const tabs = [['fms','Your Tasks'],['dash','Dashboard'],['tracker','Event Tracker'],['tasks','One-off Tasks']];
+  const tabs = [['fms','Your Tasks'],['dash','Dashboard'],['tracker','Event Tracker']];   // One-off Tasks tab removed for now
   if(me().isPC) tabs.splice(1, 0, ['follow','Follow-ups']);
+  tabs.push(['live','Live Updates']);                 // after One-off Tasks — everyone can view
   if(!tabs.some(t=>t[0]===ST.tab)) ST.tab = tabs[0][0];
   let h = tabs.map(t=>'<button class="tab '+(t[0]===ST.tab?'on':'')+'" onclick="goTab(\''+t[0]+'\')">'+t[1]+'</button>').join('');
   h += '<span style="flex:1"></span>';
@@ -388,10 +394,10 @@ function renderInner(){
     h += '<span class="scope"><button class="'+(ST.scope!=='mine'?'on':'')+'" onclick="setScope(\'all\')">All</button>' +
          '<button class="'+(ST.scope==='mine'?'on':'')+'" onclick="setScope(\'mine\')">Mine</button></span>';
   }
-  if(me().canAssign) h += '<button class="btn" onclick="taskModal()">+ New</button>';
+  if(me().owner) h += '<button class="btn" onclick="taskModal(\'enq\')">+ Allocate enquiry</button>';   // one-off tasks hidden for now
   $('#tabs').innerHTML = h;
   renderCards();
-  ({dash:renderDash, tracker:renderTracker, tasks:renderTasks, fms:renderFms, follow:renderFollow})[ST.tab]();
+  ({dash:renderDash, tracker:renderTracker, tasks:renderTasks, fms:renderFms, follow:renderFollow, live:renderLive})[ST.tab]();
 }
 
 /* ---------------- All / Mine scope (for people who can see everything) ---------------- */
@@ -446,11 +452,10 @@ function renderCards(){
   $('#cards').innerHTML =
     card(ong,'Ongoing enquiries','',"cardGo('tracker','phase','Ongoing')") +
     card(conf,'Confirmed events','ok',"cardGo('tracker','phase','Confirmed')") +
-    card(myPend.filter(p=>p.planned < now()).length, isTaskAdmin()?'Tasks overdue':'My tasks overdue','late',"cardGo('fms','fstate','late')") +
-    card(tasks.filter(isOpen).length + ' / ' + tasks.filter(isLate).length, 'Open / overdue tasks','',"cardGo('tasks','tstatus','late')");
+    card(myPend.filter(p=>p.planned < now()).length, isTaskAdmin()?'Tasks overdue':'My tasks overdue','late',"cardGo('fms','fstate','late')");
 }
 // Summary card click → open that tab with the matching filter already set
-function cardGo(tab, key, val){ ST.f[key] = val; if(tab==='fms'){ ST.f.fwho=''; ST.f.fev=''; } goTab(tab); }
+function cardGo(tab, key, val){ ST.f[key] = val; if(tab==='fms'){ ST.yt='fms'; ST.f.fwho=''; ST.f.fev=''; } goTab(tab); }
 // Confirmed on the Dashboard tab = in Order-to-Delivery FMS, or marked Confirmed on the dashboard
 function isConf(e){ return e.phase==='Confirmed' || !!e.dashConfirmed; }
 // Ongoing = not confirmed AND no confirmed event with the same Event ID number
@@ -531,8 +536,7 @@ function renderDash(){
   const right = (!mine || ong.length) ? p2 : '';
   const top = [left, right].filter(Boolean);
   $('#view').innerHTML =
-    (top.length ? '<div class="panels" style="--cols:1fr 1fr">' + top.map(x=>'<div class="col">'+x+'</div>').join('') + '</div>' : '') +
-    '<div class="panels" style="--cols:1fr;margin-top:12px"><div class="col">'+p3+'</div></div>';
+    (top.length ? '<div class="panels" style="--cols:1fr 1fr">' + top.map(x=>'<div class="col">'+x+'</div>').join('') + '</div>' : '');   // One-off Tasks panel hidden for now
 }
 function panel(title, sub, color, body){
   return '<div class="panel"><h4 style="background:'+color+'">'+title+'<small>'+sub+'</small></h4><div class="scroll">'+body+'</div></div>';
@@ -647,7 +651,68 @@ function eventModal(id){
 function kv(k,v){ return '<b>'+k+'</b><span>'+esc(v||'—')+'</span>'; }
 
 /* ---------------- FMS steps list ---------------- */
+/* ---------------- Your Tasks = two sub-tabs: FMS Tasks | Live Update Tasks ---------------- */
 function renderFms(){
+  if(ST.yt==='lu') renderMyLu(); else renderFmsSteps();
+  // count = open tasks for the chosen Employee / Event filter (same rows the table shows, before search)
+  const allLu = me().canEditUpdates && !mineOnly();
+  const nLu = myLuList().filter(u=>u.status!=='Done' && !(allLu && ST.f.ywho && u.doer!==ST.f.ywho) && !(ST.f.yev && u.eventId!==ST.f.yev)).length;
+  $('#filters').insertAdjacentHTML('afterbegin',
+    '<span class="subtabs"><button class="'+(ST.yt!=='lu'?'on':'')+'" onclick="ST.yt=\'fms\';render()">FMS Tasks</button>' +
+    '<button class="'+(ST.yt==='lu'?'on':'')+'" onclick="ST.yt=\'lu\';render()">PMS Tasks'+(nLu?' ('+nLu+')':'')+'</button></span>');
+}
+// Live Update rows for this person: their own (Doer = me); Kunal / Ashwini / Jigar (UPDATE_EDITORS) see everyone's.
+// Done rows stay (grey) for 7 days on this page — the sheet keeps them for ever.
+function myLuList(){
+  const id = me().id, all = me().canEditUpdates && !mineOnly(), cut = now() - 7*86400000;
+  return (ST.data.updates||[]).filter(u=>(all || u.doer===id) && (u.status!=='Done' || (u.doneAt||u.updAt||0) >= cut));
+}
+function renderMyLu(){
+  const f = ST.f, all = me().canEditUpdates && !mineOnly(), base = myLuList(), myId = me().id;
+  const o = (v, l, cur) => '<option value="'+esc(v)+'" '+(cur===v?'selected':'')+'>'+esc(l)+'</option>';
+  const evIds = {}; base.forEach(u=>{ evIds[u.eventId] = u.event || u.eventId; });
+  if(f.yev && !evIds[f.yev]) f.yev = '';
+  $('#filters').innerHTML =
+    (all ? '<select onchange="ST.f.ywho=this.value;render()"><option value="">All employees</option>' + ST.boot.people.map(p=>o(p.id, p.name, f.ywho)).join('') + '</select>' : '') +
+    '<select onchange="ST.f.yev=this.value;render()" style="max-width:300px"><option value="">All events</option>' +
+      Object.keys(evIds).sort().reverse().map(k=>o(k, evIds[k], f.yev)).join('') + '</select>' +
+    '<input placeholder="Search…" value="'+esc(f.yq)+'" oninput="ST.f.yq=this.value;renderMyLuTable()">';
+  renderMyLuTable();
+}
+function renderMyLuTable(){
+  const f = ST.f, all = me().canEditUpdates && !mineOnly(), q = f.yq.trim().toLowerCase(), myId = me().id;
+  const list = myLuList().filter(u=>{
+    if(all && f.ywho && u.doer!==f.ywho) return false;
+    if(f.yev && u.eventId!==f.yev) return false;
+    if(q && !(u.event+' '+u.doerName+' '+u.text).toLowerCase().includes(q)) return false;
+    return true;
+  }).sort((a,b)=>((a.status==='Done')-(b.status==='Done')) || (b.date||0)-(a.date||0) || (b.at||0)-(a.at||0));
+  let h = '<div class="small" style="margin-bottom:6px">Change the status here when you start or finish — it updates the <b>Live Updates</b> screen for everyone. Done tasks stay here (grey) for 7 days.</div>' +
+    '<div class="tablewrap"><table class="lu"><thead><tr><th class="srn">Sr.</th><th>Date</th><th>Event</th><th>Doer</th><th>Particulars</th><th>Status</th></tr></thead><tbody>';
+  if(!list.length) h += '<tr><td colspan="6"><div class="empty">No live update tasks.</div></td></tr>';
+  list.forEach((u,i)=>{
+    const can = u.doer===myId || me().canEditUpdates;
+    const st = can
+      ? '<select class="st '+sCls(u.status)+'" onchange="myLuStatus(\''+u.id+'\',this)">'+(ST.boot.updStatuses||[]).map(s=>'<option '+(s===u.status?'selected':'')+'>'+s+'</option>').join('')+'</select>'
+      : '<span class="pill '+sCls(u.status)+'">'+esc(u.status)+'</span>';
+    h += '<tr class="'+(u.status==='Done'?'lu-done':'')+'"><td class="srn">'+(i+1)+'</td><td class="small" style="white-space:nowrap">'+fmtDay(u.date)+'</td>' +
+      '<td>'+luEventCell(u)+'</td><td><b>'+esc(u.doerName)+'</b></td><td class="lu-text">'+esc(u.text)+'</td><td>'+st+'</td></tr>';
+  });
+  $('#view').innerHTML = h + '</tbody></table></div>';
+}
+async function myLuStatus(id, el){
+  const u = (ST.data.updates||[]).find(x=>x.id===id), val = el.value; el.disabled = true;
+  try{ await run('setMyUpdateStatus', AUTH(), id, val); toast('Status → '+val); await load(); }
+  catch(e){ el.value = u ? u.status : val; el.disabled = false; }
+}
+function luEventCell(u){
+  if(u.eventId==='OFF-EVENT') return '<span class="pill">'+esc(u.event||'Off-event work')+'</span>';
+  return (ST.data.events||[]).some(e=>e.id===u.eventId)
+    ? '<a href="javascript:void 0" class="evlink" onclick="eventModal(\''+u.eventId+'\')" title="Event details">'+esc(u.event||u.eventId)+'</a>'
+    : esc(u.event||u.eventId);
+}
+
+function renderFmsSteps(){
   const f = ST.f, all = isTaskAdmin();
   // Your Tasks: only admins (owner/PC) see everyone; every other person — including seeAll
   // roles like operations — sees only their own tasks here (the full picture is on the Dashboard/Tracker).
@@ -877,6 +942,115 @@ async function setStatus(id, el){
   catch(e){ el.value = t.status; el.disabled = false; }
 }
 
+/* ---------------- Live Updates: shared notepad (Date | Event | Doer | Particulars | Status) ----------------
+   Everyone sees it; only UPDATE_EDITORS (Kunal, Ashwini, Jigar by default) can add / edit / delete. */
+function istParts(ms){ const d = new Date(ms + 330*60000); return { y:d.getUTCFullYear(), m:d.getUTCMonth(), d:d.getUTCDate(), w:d.getUTCDay() }; }
+function istDayStart(ms){ const p = istParts(ms); return Date.UTC(p.y,p.m,p.d) - 330*60000; }
+function monthKey(ms){ const p = istParts(ms); return p.y+'-'+String(p.m+1).padStart(2,'0'); }
+function monthLabel(k){ const [y,m] = k.split('-'); return new Date(Date.UTC(+y,+m-1,1)).toLocaleDateString('en-GB',{month:'short',year:'numeric',timeZone:'UTC'}); }
+function isoDay(ms){ const p = istParts(ms); return p.y+'-'+String(p.m+1).padStart(2,'0')+'-'+String(p.d).padStart(2,'0'); }
+function fmtDay(ms){ return ms ? new Date(ms).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Kolkata'}) : '—'; }
+function luEvents(){ return (ST.data.events||[]).slice().sort((a,b)=>b.num-a.num); }
+function luEvLabel(e){ return e.id+' · '+e.company+(evName(e)?' – '+evName(e):''); }
+// Date filter: Today / This week / This month / any month that has rows / All
+function luInRange(u){
+  const w = ST.f.lwhen, n = now(), t0 = istDayStart(n);
+  if(!u.date) return w==='all';
+  if(w==='all') return true;
+  if(w==='today') return u.date >= t0 && u.date < t0 + 86400000;
+  if(w==='week'){ const back = (istParts(n).w + 6) % 7; return u.date >= t0 - back*86400000 && u.date < t0 + 86400000*(7-back); }   // Mon–Sun
+  if(w==='month') return monthKey(u.date) === monthKey(n);
+  return monthKey(u.date) === w;
+}
+function renderLive(){
+  const f = ST.f, all = ST.data.updates || [], ed = me().canEditUpdates;
+  const months = [...new Set(all.filter(u=>u.date).map(u=>monthKey(u.date)))].sort().reverse().filter(k=>k!==monthKey(now()));
+  const evIds = {}; all.forEach(u=>{ evIds[u.eventId] = u.event || u.eventId; });
+  const off = ST.boot.offEvent || {id:'OFF-EVENT', label:'Off-event work'};
+  const o = (v, l, cur) => '<option value="'+esc(v)+'" '+(cur===v?'selected':'')+'>'+esc(l)+'</option>';
+  $('#filters').innerHTML =
+    '<select onchange="ST.f.lwhen=this.value;renderLive()">' + o('today','Today',f.lwhen) + o('week','This week',f.lwhen) + o('month','This month',f.lwhen) +
+      months.map(k=>o(k, monthLabel(k), f.lwhen)).join('') + o('all','All dates',f.lwhen) + '</select>' +
+    '<select onchange="ST.f.lwho=this.value;renderLive()"><option value="">All employees</option>' +
+      ST.boot.people.map(p=>o(p.id, p.name, f.lwho)).join('') + '</select>' +
+    '<select onchange="ST.f.lev=this.value;renderLive()" style="max-width:300px"><option value="">All events</option>' + o(off.id, off.label, f.lev) +
+      Object.keys(evIds).filter(k=>k!==off.id).sort().reverse().map(k=>o(k, evIds[k], f.lev)).join('') + '</select>' +
+    '<select onchange="ST.f.lst=this.value;renderLive()"><option value="">All status</option>' + (ST.boot.updStatuses||[]).map(s=>o(s, s, f.lst)).join('') + '</select>' +
+    '<input placeholder="Search…" value="'+esc(f.lq)+'" oninput="ST.f.lq=this.value;renderLiveTable()">' +
+    (ed ? '<span style="flex:1"></span><button class="btn" onclick="luModal()">+ Add update</button>' : '');
+  renderLiveTable();
+}
+function renderLiveTable(){
+  const f = ST.f, q = f.lq.trim().toLowerCase(), ed = me().canEditUpdates, myId = me().id;
+  const list = (ST.data.updates||[]).filter(u=>{
+    if(!luInRange(u)) return false;
+    if(mineOnly() && u.doer!==myId) return false;
+    if(f.lwho && u.doer!==f.lwho) return false;
+    if(f.lev && u.eventId!==f.lev) return false;
+    if(f.lst && u.status!==f.lst) return false;
+    if(q && !(u.event+' '+u.doerName+' '+u.text).toLowerCase().includes(q)) return false;
+    return true;
+  }).sort((a,b)=>(b.date||0)-(a.date||0) || (b.at||0)-(a.at||0));
+  let h = '<div class="tablewrap"><table class="lu"><thead><tr><th class="srn">Sr.</th><th>Date</th><th>Event</th><th>Doer</th><th>Particulars</th><th>Status</th>'+(ed?'<th></th>':'')+'</tr></thead><tbody>';
+  if(!list.length) h += '<tr><td colspan="'+(ed?7:6)+'"><div class="empty">No updates for this filter.'+(ed?' Use “+ Add update” to write one.':'')+'</div></td></tr>';
+  list.forEach((u,i)=>{
+    const st = ed
+      ? '<select class="st '+sCls(u.status)+'" onchange="luStatus(\''+u.id+'\',this)">'+(ST.boot.updStatuses||[]).map(s=>'<option '+(s===u.status?'selected':'')+'>'+s+'</option>').join('')+'</select>'
+      : '<span class="pill '+sCls(u.status)+'">'+esc(u.status)+'</span>';
+    h += '<tr class="'+(u.status==='Done'?'lu-done':'')+'"><td class="srn">'+(i+1)+'</td><td class="small" style="white-space:nowrap">'+fmtDay(u.date)+'</td>' +
+      '<td>'+luEventCell(u)+'</td>' +
+      '<td><b>'+esc(u.doerName)+'</b></td>' +
+      '<td class="lu-text">'+esc(u.text)+'<div class="small muted" title="Last updated">'+esc(u.updByName||u.byName)+' · '+fmt(u.updAt||u.at)+'</div></td>' +
+      '<td>'+st+'</td>'+(ed?'<td><button class="btn ghost sm" onclick="luModal(\''+u.id+'\')">Edit</button></td>':'')+'</tr>';
+  });
+  $('#view').innerHTML = h + '</tbody></table></div>';
+}
+function luModal(id){
+  const u = id ? (ST.data.updates||[]).find(x=>x.id===id) : null;
+  const off = ST.boot.offEvent || {id:'OFF-EVENT', label:'Off-event work'};
+  const evs = luEvents(), cur = u ? u.eventId : '';
+  const known = !cur || cur===off.id || evs.some(e=>e.id===cur);
+  const evOpt = e => '<option value="'+e.id+'" '+(e.id===cur?'selected':'')+'>'+esc(luEvLabel(e))+'</option>';
+  openModal('<h3>'+(u?'Edit update':'Add live update')+'</h3>' +
+    '<div class="row2"><div><label>Date</label><input id="lu_date" type="date" value="'+(u&&u.date?isoDay(u.date):isoDay(now()))+'"></div>' +
+    '<div><label>Status</label><select id="lu_st">'+(ST.boot.updStatuses||[]).map(s=>'<option '+(s===(u?u.status:'In Progress')?'selected':'')+'>'+s+'</option>').join('')+'</select></div></div>' +
+    '<label>Event</label><select id="lu_ev"><option value="">— choose —</option>' +
+      '<option value="'+off.id+'" '+(cur===off.id?'selected':'')+'>'+esc(off.label)+'</option>' +
+      (!known ? '<option value="'+esc(cur)+'" selected>'+esc(u.event||cur)+'</option>' : '') +
+      '<optgroup label="Confirmed events">'+evs.filter(isConf).map(evOpt).join('')+'</optgroup>' +
+      '<optgroup label="Ongoing enquiries">'+evs.filter(isOngoing).map(evOpt).join('')+'</optgroup></select>' +
+    '<div class="row2"><div><label>TAT</label><input id="lu_tat" type="number" min="0" step="1" value="'+esc(u&&u.tat!==''&&u.tat!=null?u.tat:1)+'"></div>' +
+      '<div><label>Unit</label><select id="lu_unit" onchange="$(\'#lu_tat\').step=this.value===\'Hours\'?\'0.5\':\'1\'">' +
+        ['Days','Hours'].map(x=>'<option '+(x===((u&&u.tatUnit)||'Days')?'selected':'')+'>'+x+'</option>').join('')+'</select></div></div>' +
+    '<div class="small muted" style="margin-top:4px">Days = by 23:59 that many days after it is added (0 = today). Hours = exact. Counted from when the row is added.</div>' +
+    '<label>Doer</label><select id="lu_doer"><option value="">— choose —</option>' +
+      ST.boot.people.map(p=>'<option value="'+p.id+'" '+(u&&u.doer===p.id?'selected':'')+'>'+esc(p.name)+'</option>').join('')+'</select>' +
+    '<label>Particulars</label><textarea id="lu_text" placeholder="What is being done, e.g. Vendor quotes for LED wall shared with client">'+esc(u?u.text:'')+'</textarea>' +
+    '<div class="actions">'+(u?'<button class="btn ghost" style="color:var(--late);margin-right:auto" onclick="luDelete(\''+u.id+'\')">Delete</button>':'') +
+      '<button class="btn ghost" onclick="closeModal()">Close</button><button class="btn" id="lu_go" onclick="luSave('+(u?'\''+u.id+'\'':'')+')">'+(u?'Save':'Add')+'</button></div>');
+}
+async function luSave(id){
+  const d = { date:$('#lu_date').value, eventId:$('#lu_ev').value, doer:$('#lu_doer').value, text:$('#lu_text').value, status:$('#lu_st').value,
+              tat:$('#lu_tat').value, tatUnit:$('#lu_unit').value };
+  if(!d.eventId) return toast('Choose an event (or Off-event work)', 'err');
+  if(!d.doer) return toast('Choose the doer', 'err');
+  if(!d.text.trim()) return toast('Write the particulars', 'err');
+  const tv = Number(d.tat);
+  if(d.tat==='' || !(d.tatUnit==='Hours' ? tv>0 : (tv>=0 && Math.floor(tv)===tv))) return toast(d.tatUnit==='Hours' ? 'TAT in hours must be more than 0' : 'TAT in days must be a whole number (0 = today)', 'err');
+  const b = $('#lu_go'); b.disabled = true;
+  try{ await (id ? run('editUpdate', AUTH(), id, d) : run('addUpdate', AUTH(), d)); closeModal(); toast(id?'Update saved':'Update added'); await load(); }
+  catch(e){ b.disabled = false; }
+}
+async function luStatus(id, el){
+  const u = (ST.data.updates||[]).find(x=>x.id===id), val = el.value; el.disabled = true;
+  try{ await run('editUpdate', AUTH(), id, { statusOnly:true, status:val }); toast('Status → '+val); await load(); }
+  catch(e){ el.value = u ? u.status : val; el.disabled = false; }
+}
+async function luDelete(id){
+  if(!confirm('Delete this update? This cannot be undone.')) return;
+  try{ await run('deleteUpdate', AUTH(), id); closeModal(); toast('Update deleted'); await load(); }catch(e){}
+}
+
 /* ---------------- modals ---------------- */
 function openModal(html, wide){ $('#modalBox').className = 'box' + (wide?' wide':''); $('#modalBox').innerHTML = html; $('#modal').classList.remove('hidden'); }
 function closeModal(){ $('#modal').classList.add('hidden'); }
@@ -891,7 +1065,7 @@ function taskModal(type){
   const m = me();
   type = type || 'task';
   if(!m.owner) type = 'task';
-  const sel = m.owner
+  const sel = false
     ? '<div class="typesel"><button class="'+(type==='task'?'on':'')+'" onclick="taskModal(\'task\')">One-off Task</button>' +
       '<button class="'+(type==='enq'?'on':'')+'" onclick="taskModal(\'enq\')">Allocate Enquiry</button></div>'
     : '';
@@ -970,8 +1144,8 @@ function showNextPop(){
   const n = (ST.notifs||[]).find(x=>!ST.snooze[x.id]);
   if(!n) return;
   ST.popOpen = n.id;
-  const enq = /^EVT-/i.test(n.taskId||''), stp = /^STEP-/i.test(n.taskId||''), cnf = /^CONF-/i.test(n.taskId||'');
-  $('#popBox').innerHTML = '<h3>'+(cnf?'Enquiry confirmed — update the enquiry form':stp?'FMS step marked — update the FMS':enq?'Enquiry allocated to you':'Task complete')+'</h3><div class="msg">'+esc(n.msg)+'</div>' +
+  const enq = /^EVT-/i.test(n.taskId||''), stp = /^STEP-/i.test(n.taskId||''), cnf = /^CONF-/i.test(n.taskId||''), lud = /^LUD-/i.test(n.taskId||'');
+  $('#popBox').innerHTML = '<h3>'+(lud?'Live update done':cnf?'Enquiry confirmed — update the enquiry form':stp?'FMS step marked — update the FMS':enq?'Enquiry allocated to you':'Task complete')+'</h3><div class="msg">'+esc(n.msg)+'</div>' +
     '<div class="small" style="margin-top:6px">'+esc(n.taskId)+' · '+fmt(n.at)+'</div>' +
     '<div class="actions"><button class="btn ghost" onclick="snoozePop()">Later</button><button class="btn" onclick="ackPop()">OK</button></div>';
   $('#pop').classList.remove('hidden');
