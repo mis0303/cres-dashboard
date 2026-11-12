@@ -686,7 +686,7 @@ function renderMyLuTable(){
     if(f.yev && u.eventId!==f.yev) return false;
     if(q && !(u.event+' '+u.doerName+' '+u.text).toLowerCase().includes(q)) return false;
     return true;
-  }).sort((a,b)=>((a.status==='Done')-(b.status==='Done')) || (b.date||0)-(a.date||0) || (b.at||0)-(a.at||0));
+  }).sort((a,b)=>luRank(a)-luRank(b) || (b.date||0)-(a.date||0) || (b.at||0)-(a.at||0));
   let h = '<div class="small" style="margin-bottom:6px">Change the status here when you start or finish — it updates the <b>Live Updates</b> screen for everyone. Done tasks stay here (grey) for 7 days.</div>' +
     '<div class="tablewrap"><table class="lu"><thead><tr><th class="srn">Sr.</th><th>Date</th><th>Event</th><th>Doer</th><th>Particulars</th><th>Status</th></tr></thead><tbody>';
   if(!list.length) h += '<tr><td colspan="6"><div class="empty">No live update tasks.</div></td></tr>';
@@ -962,6 +962,8 @@ function luInRange(u){
   if(w==='month') return monthKey(u.date) === monthKey(n);
   return monthKey(u.date) === w;
 }
+// Row order on Live Updates + PMS Tasks: In Progress → Pending → On Hold → Done (latest date first inside each)
+function luRank(u){ const r = {'In Progress':0, 'Pending':1, 'On Hold':2, 'Done':3}[u.status]; return r==null ? 2 : r; }
 function renderLive(){
   const f = ST.f, all = ST.data.updates || [], ed = me().canEditUpdates;
   const months = [...new Set(all.filter(u=>u.date).map(u=>monthKey(u.date)))].sort().reverse().filter(k=>k!==monthKey(now()));
@@ -990,7 +992,7 @@ function renderLiveTable(){
     if(f.lst && u.status!==f.lst) return false;
     if(q && !(u.event+' '+u.doerName+' '+u.text).toLowerCase().includes(q)) return false;
     return true;
-  }).sort((a,b)=>(b.date||0)-(a.date||0) || (b.at||0)-(a.at||0));
+  }).sort((a,b)=>luRank(a)-luRank(b) || (b.date||0)-(a.date||0) || (b.at||0)-(a.at||0));
   let h = '<div class="tablewrap"><table class="lu"><thead><tr><th class="srn">Sr.</th><th>Date</th><th>Event</th><th>Doer</th><th>Particulars</th><th>Status</th>'+(ed?'<th></th>':'')+'</tr></thead><tbody>';
   if(!list.length) h += '<tr><td colspan="'+(ed?7:6)+'"><div class="empty">No updates for this filter.'+(ed?' Use “+ Add update” to write one.':'')+'</div></td></tr>';
   list.forEach((u,i)=>{
