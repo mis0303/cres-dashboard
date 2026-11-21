@@ -541,9 +541,25 @@ function evNameLine(e){ return evName(e) ? '<div class="small">'+esc(evName(e))+
 function evNameById(id){ return evName((ST.data.events||[]).find(x=>x.id===id)); }
 
 /* ---------------- dashboard (3 panels, as per format) ---------------- */
+/* ---------------- Dashboard search (front-end only) ----------------
+   One box above the Dashboard panels: type an Event ID, company, client, event name or doer
+   and only matching events stay in Confirmed Events / Ongoing Enquiries. Works together with the date filter. */
+function dashMatch(e){
+  const q = String(ST.f.dq||'').trim().toLowerCase();
+  if(!q) return true;
+  return [e.id, e.company, e.client, e.eventName, e.lead, e.eventDate].join(' ').toLowerCase().includes(q);
+}
 function renderDash(){
-  $('#filters').innerHTML = '';
-  const evs = EVS();
+  if(!$('#dash_q')){                  // built once, so typing is never interrupted by the auto refresh
+    $('#filters').innerHTML = '<input id="dash_q" style="min-width:300px" placeholder="Search event — ID, company, client, event name, doer…" ' +
+      'oninput="ST.f.dq=this.value;renderDashBody()">' +
+      '<button class="btn ghost sm" onclick="ST.f.dq=\'\';$(\'#dash_q\').value=\'\';renderDashBody()">Clear</button>';
+  }
+  if($('#dash_q').value !== (ST.f.dq||'')) $('#dash_q').value = ST.f.dq||'';
+  renderDashBody();
+}
+function renderDashBody(){
+  const evs = EVS().filter(dashMatch);
   const conf = evs.filter(isConf);
   const ong  = evs.filter(isOngoing);
   const tasks = myTaskList().filter(isOpen).sort((a,b)=>(a.planned||0)-(b.planned||0));
