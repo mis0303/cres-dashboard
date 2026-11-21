@@ -129,6 +129,12 @@
   .toast{background:#1f2933;color:#fff;padding:10px 14px;border-radius:8px;font-size:13px;max-width:340px;box-shadow:0 6px 18px rgba(0,0,0,.2)}
   .toast.err{background:var(--late)}
   .loading{padding:40px;text-align:center;color:var(--muted)}
+  /* event date range filter (front-end only) */
+  .datebar{align-items:center;background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+  .datebar b{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
+  .datebar .dbinfo{font-size:12px;color:var(--muted)}
+  .datebar.on{border-color:var(--brand);background:#eef6f6}
+  .datebar.on .dbinfo{color:var(--brand);font-weight:600}
   @media (max-width:1100px){ .panels{grid-template-columns:1fr} }
   @media (max-width:700px){
     .cards{grid-template-columns:repeat(2,1fr)} .kv{grid-template-columns:1fr} header .who{width:100%} .row2{grid-template-columns:1fr}
@@ -211,6 +217,7 @@
   <div id="errors"></div>
   <div class="bar" id="tabs"></div>
   <div class="cards" id="cards"></div>
+  <div class="filters datebar" id="datebar" style="display:none"></div>
   <div class="filters" id="filters"></div>
   <div id="view"><div class="loading">Loading dashboard…</div></div>
 </div>
@@ -397,6 +404,7 @@ function renderInner(){
   if(me().owner) h += '<button class="btn" onclick="taskModal(\'enq\')">+ Allocate enquiry</button>';   // one-off tasks hidden for now
   $('#tabs').innerHTML = h;
   renderCards();
+  renderDateBar();
   ({dash:renderDash, tracker:renderTracker, tasks:renderTasks, fms:renderFms, follow:renderFollow, live:renderLive})[ST.tab]();
 }
 
@@ -409,9 +417,58 @@ function isMineEvent(e){
   return ['L2O','O2D','PE'].some(k=>(e.cells[k]||[]).some(x=>nameN(x[4])===n));
 }
 // Dashboard tables: everyone sees all confirmed + ongoing events; "Mine" narrows them
-function EVS(){ return scopeMine() ? ST.data.events.filter(isMineEvent) : ST.data.events; }
+/* ---------------- Event date range filter (front-end only, backend untouched) ----------------
+   Filters ONLY on each event's Event Date (DD/MM/YYYY) — not on planned / task dates.
+   An event outside the range is hidden everywhere, including its pending FMS steps in Your Tasks.
+   Applies to: Your Tasks (FMS Tasks), Dashboard, Event Tracker and the summary cards.
+   Not applied to: Follow-ups (PC), PMS Tasks, Live Updates. Events with no readable Event Date are hidden while a range is set. */
+ST.dr = { from:'', to:'' };                       // 'YYYY-MM-DD' from the date inputs
+try{ const s = JSON.parse(localStorage.getItem('cresDates')||'{}'); ST.dr.from = s.from||''; ST.dr.to = s.to||''; }catch(e){}
+function dayNum(y,m,d){ return y*10000 + m*100 + d; }               // 2026-11-03 → 20261103 (no time zone issues)
+function evDayNum(e){
+  const m = String(e.eventDate||'').trim().match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/);   // DD/MM/YYYY
+  return m ? dayNum(+m[3], +m[2], +m[1]) : null;
+}
+function inputDayNum(v){ const m = String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? dayNum(+m[1], +m[2], +m[3]) : null; }
+function dateOn(){ return !!(ST.dr.from || ST.dr.to); }
+function inRange(e){
+  if(!dateOn()) return true;
+  const n = evDayNum(e); if(n==null) return false;
+  const f = inputDayNum(ST.dr.from), t = inputDayNum(ST.dr.to);
+  return (f==null || n>=f) && (t==null || n<=t);
+}
+function dateEVS(){ return ST.data.events.filter(inRange); }
+function setDates(){
+  ST.dr.from = $('#dr_from').value; ST.dr.to = $('#dr_to').value;
+  if(ST.dr.from && ST.dr.to && ST.dr.from > ST.dr.to){ toast('From date is after To date', 'err'); }
+  try{ localStorage.setItem('cresDates', JSON.stringify(ST.dr)); }catch(e){}
+  render();
+}
+function clearDates(){ ST.dr.from=''; ST.dr.to=''; try{ localStorage.removeItem('cresDates'); }catch(e){} $('#dr_from').value=''; $('#dr_to').value=''; render(); }
+function fmtIn(v){ const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? m[3]+'/'+m[2]+'/'+m[1] : ''; }
+function renderDateBar(){
+  const bar = $('#datebar');
+  const show = ['dash','tracker'].includes(ST.tab) || (ST.tab==='fms' && ST.yt!=='lu');
+  bar.style.display = show ? 'flex' : 'none';
+  if(!show) return;
+  if(!$('#dr_from')){                 // built once, so the auto refresh never closes an open date picker
+    bar.innerHTML = '<b>Event date</b>' +
+      '<span class="small">From</span><input type="date" id="dr_from" onchange="setDates()">' +
+      '<span class="small">To</span><input type="date" id="dr_to" onchange="setDates()">' +
+      '<button class="btn ghost sm" onclick="clearDates()">Clear</button>' +
+      '<span class="dbinfo" id="dr_info"></span>';
+  }
+  if($('#dr_from').value !== ST.dr.from) $('#dr_from').value = ST.dr.from;
+  if($('#dr_to').value !== ST.dr.to) $('#dr_to').value = ST.dr.to;
+  bar.classList.toggle('on', dateOn());
+  $('#dr_info').textContent = dateOn()
+    ? 'Showing ' + dateEVS().length + ' event(s) dated ' + (ST.dr.from ? fmtIn(ST.dr.from) : 'any') + ' → ' + (ST.dr.to ? fmtIn(ST.dr.to) : 'any')
+    : 'All dates';
+}
+
+function EVS(){ const b = dateEVS(); return scopeMine() ? b.filter(isMineEvent) : b; }
 // Event Tracker / FMS steps: people who don't see everything only get their own events
-function trackEVS(){ return mineOnly() ? ST.data.events.filter(isMineEvent) : ST.data.events; }
+function trackEVS(){ const b = dateEVS(); return mineOnly() ? b.filter(isMineEvent) : b; }
 function setScope(s){ ST.scope = s; try{ localStorage.setItem('cresScope', s); }catch(e){} render(); }
 
 // "Your Tasks" admins — only these people see everyone's tasks and the employee dropdown.
@@ -419,9 +476,9 @@ function setScope(s){ ST.scope = s; try{ localStorage.setItem('cresScope', s); }
 var TASK_ADMINS = ['salauddin','pratik','jigar','kunal','ashwini'];
 function isTaskAdmin(){ return TASK_ADMINS.indexOf(nameN(me().name)) >= 0; }
 // Every pending FMS step across all events, with no role filtering (used by Your Tasks + its cards)
-function allPendingSteps(){
+function allPendingSteps(noDate){
   const out = [];
-  ST.data.events.forEach(ev=>{
+  (noDate ? ST.data.events : dateEVS()).forEach(ev=>{          // noDate = Follow-ups: date filter not applied
     ['L2O','O2D','PE'].forEach(k=>{
       const cells = ev.cells[k]; if(!cells) return;
       cells.forEach((x,i)=>{
@@ -438,7 +495,7 @@ function myPendingSteps(){
   return isTaskAdmin() ? allPendingSteps() : allPendingSteps().filter(p=>nameN(p.doer)===nameN(me().name));
 }
 function pendingSteps(ignoreScope){
-  const out = allPendingSteps();
+  const out = allPendingSteps(ignoreScope);
   return (me().seeAll && (ignoreScope || !mineOnly())) ? out : out.filter(p=>nameN(p.doer)===nameN(me().name));
 }
 
@@ -518,7 +575,9 @@ function renderDash(){
   let p5 = '', p5Rows = 0;
   if(ST.data.showPending){
     const myN = nameN(me().name);
-    const pf = (ST.data.pendingFms || []).filter(a=>!(mineOnly() && me().seeAll) || nameN(a.toName)===myN || nameN(a.byName)===myN);
+    const inDates = new Set(dateEVS().map(e=>e.id));
+    const pf = (ST.data.pendingFms || []).filter(a=>!(mineOnly() && me().seeAll) || nameN(a.toName)===myN || nameN(a.byName)===myN)
+                                         .filter(a=>!dateOn() || inDates.has(a.id));
     const pend = pf.filter(a=>!a.updated).length; p5Rows = pf.length;
     // Show the Enquiry Allocations panel only when at least one enquiry has been allocated
     if(pf.length) p5 = panel('Enquiry Allocations', pend+' pending FMS update', '#b45309',
