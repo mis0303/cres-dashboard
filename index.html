@@ -380,8 +380,11 @@ function render(){
   const keep = ST.renderedTab === ST.tab ? captureScroll() : null;
   const minH = document.body.offsetHeight;                 // stop the page shrinking mid-redraw
   document.body.style.minHeight = minH + 'px';
+  const ae = document.activeElement, aid = ae && ae.id && ae.tagName === 'INPUT' && ae.type !== 'date' ? ae.id : '';
+  const ss = aid ? ae.selectionStart : 0, se = aid ? ae.selectionEnd : 0;
   try{ renderInner(); } finally{
     restoreScroll(keep);
+    if(aid){ const el = document.getElementById(aid); if(el && el !== document.activeElement){ el.focus(); try{ el.setSelectionRange(ss, se); }catch(e){} } }
     ST.renderedTab = ST.tab;
     document.body.style.minHeight = '';
   }
@@ -512,7 +515,7 @@ function renderCards(){
     card(myPend.filter(p=>p.planned < now()).length, isTaskAdmin()?'Tasks overdue':'My tasks overdue','late',"cardGo('fms','fstate','late')");
 }
 // Summary card click → open that tab with the matching filter already set
-function cardGo(tab, key, val){ ST.f[key] = val; if(tab==='fms'){ ST.yt='fms'; ST.f.fwho=''; ST.f.fev=''; } goTab(tab); }
+function cardGo(tab, key, val){ ST.f[key] = val; if(tab==='fms'){ ST.yt='fms'; ST.f.fwho=''; ST.f.fev=''; ST.f.ytq=''; } goTab(tab); }
 // Confirmed on the Dashboard tab = in Order-to-Delivery FMS, or marked Confirmed on the dashboard
 function isConf(e){ return e.phase==='Confirmed' || !!e.dashConfirmed; }
 // Ongoing = not confirmed AND no confirmed event with the same Event ID number
@@ -773,23 +776,30 @@ function renderFmsSteps(){
   const evMap = {};
   mine.forEach(p=>{ evMap[p.ev.id] = p.ev; });
   const evOpts = Object.values(evMap).sort((a,b)=>b.num-a.num);
-  if(f.fev && !evMap[f.fev]) f.fev = '';
   $('#filters').innerHTML =
     '<select onchange="ST.f.fstate=this.value;render()">' +
       [['pending','All pending'],['late','Overdue only'],['today','Due today']].map(o=>'<option value="'+o[0]+'" '+(f.fstate===o[0]?'selected':'')+'>'+o[1]+'</option>').join('') + '</select>' +
     (all ? '<select onchange="ST.f.fwho=this.value;render()"><option value="">All employees</option>' +
       doers.map(d=>'<option '+(f.fwho===d?'selected':'')+'>'+esc(d)+'</option>').join('') + '</select>' : '') +
-    '<select onchange="ST.f.fev=this.value;render()" style="max-width:320px"><option value="">All events</option>' +
-      evOpts.map(e=>'<option value="'+e.id+'" '+(f.fev===e.id?'selected':'')+'>'+esc(e.company+(evName(e)?' – '+evName(e):'')+' · '+e.id)+'</option>').join('') + '</select>';
+    // "All events" = a box you can type in: e.g. "baj" keeps only Bajaj events; the suggestion list shows matching events
+    '<input id="yt_ev" list="yt_evlist" autocomplete="off" style="min-width:300px" placeholder="All events" value="'+esc(f.ytq||'')+'" oninput="ST.f.ytq=this.value;renderFmsList()">' +
+    '<datalist id="yt_evlist">' + evOpts.map(e=>'<option value="'+esc(e.company+(evName(e)?' – '+evName(e):'')+' · '+e.id)+'"></option>').join('') + '</datalist>' +
+    '<button class="btn ghost sm" onclick="ST.f.ytq=\'\';$(\'#yt_ev\').value=\'\';renderFmsList()">Clear</button>';
+  renderFmsList();
+}
+// Only the task list is redrawn while typing, so the box and its suggestion list stay open
+function renderFmsList(){
+  const f = ST.f, all = isTaskAdmin(), mine = myPendingSteps();
   const n = now();
+  const q = String(f.ytq||'').trim().toLowerCase();
   const list = mine.filter(p=>{
+    if(q && !(p.ev.company+' – '+evName(p.ev)+' · '+p.ev.id+' '+p.ev.client).toLowerCase().includes(q)) return false;
     if(f.fstate==='late' && !(p.planned < n)) return false;
     if(f.fstate==='today' && dayKey(p.planned)!==dayKey(n)) return false;
     if(all && f.fwho && (p.doer||'(blank)')!==f.fwho) return false;
-    if(f.fev && p.ev.id!==f.fev) return false;
     return true;
   }).sort((a,b)=>a.planned-b.planned);
-  if(!list.length){ $('#view').innerHTML = '<div class="tablewrap"><div class="empty">No pending tasks.</div></div>'; return; }
+  if(!list.length){ $('#view').innerHTML = '<div class="tablewrap"><div class="empty">'+(q?'No tasks match "'+esc(f.ytq)+'".':'No pending tasks.')+'</div></div>'; return; }
   $('#view').innerHTML = '<div class="small" style="margin-bottom:6px">Mark a task <b>Done</b> / <b>Yes</b> / <b>No</b> here — Ashwini gets notified and updates the FMS. The dashboard never writes to the FMS.</div>' +
     '<div class="tablewrap"><table><thead><tr><th>Event</th><th>Stage</th><th>Step</th><th>Doer</th><th>Planned</th><th>Delay</th><th>Action</th></tr></thead><tbody>' +
     list.map(p=>{ const d = delayOf(p.planned);
