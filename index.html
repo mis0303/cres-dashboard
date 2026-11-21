@@ -133,7 +133,7 @@
   .datebar{align-items:center;background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 12px}
   .datebar b{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
   .datebar .dbinfo{font-size:12px;color:var(--muted)}
-  .datebar.on{border-color:var(--brand);background:#eef6f6}
+  .datebar.on{border-color:var(--brand);background:#f9fafb}
   .datebar.on .dbinfo{color:var(--brand);font-weight:600}
   @media (max-width:1100px){ .panels{grid-template-columns:1fr} }
   @media (max-width:700px){
@@ -401,11 +401,11 @@ function renderInner(){
     h += '<span class="scope"><button class="'+(ST.scope!=='mine'?'on':'')+'" onclick="setScope(\'all\')">All</button>' +
          '<button class="'+(ST.scope==='mine'?'on':'')+'" onclick="setScope(\'mine\')">Mine</button></span>';
   }
-  if(me().owner) h += '<button class="btn" onclick="taskModal(\'enq\')">+ Allocate enquiry</button>';   // one-off tasks hidden for now
+  // Enquiry allocation and One-off Tasks removed (21 Nov 2026)
   $('#tabs').innerHTML = h;
   renderCards();
   renderDateBar();
-  ({dash:renderDash, tracker:renderTracker, tasks:renderTasks, fms:renderFms, follow:renderFollow, live:renderLive})[ST.tab]();
+  ({dash:renderDash, tracker:renderTracker, fms:renderFms, follow:renderFollow, live:renderLive})[ST.tab]();
 }
 
 /* ---------------- All / Mine scope (for people who can see everything) ---------------- */
@@ -500,7 +500,7 @@ function pendingSteps(ignoreScope){
 }
 
 function renderCards(){
-  const evs = EVS(), tasks = myTaskList();
+  const evs = EVS();
   // "My tasks overdue" counts the same tasks the Your Tasks tab shows for this person:
   // admins (owner/PC) see everyone's; every other person sees only their own.
   const myPend = myPendingSteps();
@@ -562,7 +562,6 @@ function renderDashBody(){
   const evs = EVS().filter(dashMatch);
   const conf = evs.filter(isConf);
   const ong  = evs.filter(isOngoing);
-  const tasks = myTaskList().filter(isOpen).sort((a,b)=>(a.planned||0)-(b.planned||0));
 
   const p1 = panel('Confirmed Events', 'Order to Delivery FMS', 'var(--O2D)',
     '<table><thead><tr><th>Status</th><th>Event ID</th><th>Company</th><th>Event Name</th><th>Client</th><th>Event Date</th><th>Allocated to</th></tr></thead><tbody>' +
@@ -582,36 +581,13 @@ function renderDashBody(){
         tags(e)+'<div class="mono">'+e.id+(e.lead?' · '+esc(e.lead):'')+'</div></td><td>'+evNameCell(e)+'</td><td>'+esc(e.eventDate||'—')+'</td></tr>').join('') +
       '</tbody></table>');
 
-  const p3 = panel('One-off Tasks', 'open', 'var(--brand)',
-    '<table><thead><tr><th>Task ID</th><th>Task</th><th>Planned</th><th>Delay</th><th>Allocated to</th></tr></thead><tbody>' +
-      tasks.map(t=>{ const d = delayOf(t.planned,t.actual);
-        return '<tr class="click" onclick="goTab(\'tasks\')"><td class="mono">'+t.id+'</td><td><b>'+esc(t.title)+'</b><div class="small">by '+esc(t.byName)+'</div></td><td class="small">'+fmt(t.planned)+'</td><td class="'+d.cls+'">'+d.txt+'</td><td>'+esc(t.toName)+'</td></tr>'; }).join('') +
-      '</tbody></table>');
-
-  let p5 = '', p5Rows = 0;
-  if(ST.data.showPending){
-    const myN = nameN(me().name);
-    const inDates = new Set(dateEVS().map(e=>e.id));
-    const pf = (ST.data.pendingFms || []).filter(a=>!(mineOnly() && me().seeAll) || nameN(a.toName)===myN || nameN(a.byName)===myN)
-                                         .filter(a=>!dateOn() || inDates.has(a.id));
-    const pend = pf.filter(a=>!a.updated).length; p5Rows = pf.length;
-    // Show the Enquiry Allocations panel only when at least one enquiry has been allocated
-    if(pf.length) p5 = panel('Enquiry Allocations', pend+' pending FMS update', '#b45309',
-      '<table><thead><tr><th>Event ID</th><th>Company</th><th>Allocated to</th><th>FMS</th><th>FMS Doer now</th><th>By</th><th>When</th></tr></thead><tbody>' +
-        pf.map(a=>'<tr class="click" onclick="eventModal(\''+a.id+'\')"><td class="mono">'+a.id+'</td><td><b>'+esc(a.company)+'</b>'+evNameLine(a)+'</td><td>'+esc(a.toName)+'</td>' +
-          '<td>'+(a.updated?'<span class="pill s-done">Updated</span>':'<span class="pill" style="background:var(--lateBg);color:var(--late)">Not updated</span>')+'</td>' +
-          '<td>'+(a.fmsDoer?esc(a.fmsDoer):'<span class="muted">—</span>')+'</td><td>'+esc(a.byName)+'</td><td class="small">'+fmt(a.at)+'</td></tr>').join('') +
-        '</tbody></table>');
-  }
-
-  // Layout: top row = Confirmed Events (+ Enquiry Allocations under it, only when something is allocated) | Ongoing Enquiries;
-  // One-off Tasks below, full width. Mine: empty event panels are hidden and the rest stay left-aligned at the same size.
+  // Layout: Confirmed Events | Ongoing Enquiries. Mine: empty panels are hidden.
   const mine = scopeMine();
-  const left  = ((!mine || conf.length) ? p1 : '') + ((!mine || p5Rows) ? p5 : '');
+  const left  = (!mine || conf.length) ? p1 : '';
   const right = (!mine || ong.length) ? p2 : '';
   const top = [left, right].filter(Boolean);
   $('#view').innerHTML =
-    (top.length ? '<div class="panels" style="--cols:1fr 1fr">' + top.map(x=>'<div class="col">'+x+'</div>').join('') + '</div>' : '');   // One-off Tasks panel hidden for now
+    (top.length ? '<div class="panels" style="--cols:1fr 1fr">' + top.map(x=>'<div class="col">'+x+'</div>').join('') + '</div>' : '');
 }
 function panel(title, sub, color, body){
   return '<div class="panel"><h4 style="background:'+color+'">'+title+'<small>'+sub+'</small></h4><div class="scroll">'+body+'</div></div>';
@@ -705,7 +681,7 @@ function eventModal(id){
   const e = ST.data.events.find(x=>x.id===id); if(!e) return;
   const F = e.form || {};
   let h = '<h3>'+esc(e.company||'—')+' <span class="mono">'+e.id+'</span></h3>' +
-    '<div class="kv">'+kv('Event name',evName(e))+kv('Client',e.client)+kv('Event date',e.eventDate)+kv('Stage',e.phase)+kv('Lead (FMS Doer)',e.lead||'—')+(e.alloc?kv('Allocated in dashboard',e.alloc.toName+' by '+e.alloc.byName+', '+fmt(e.alloc.at)):'')+
+    '<div class="kv">'+kv('Event name',evName(e))+kv('Client',e.client)+kv('Event date',e.eventDate)+kv('Stage',e.phase)+kv('Lead (FMS Doer)',e.lead||'—')+
     (e.form ? kv('Phone',F.phone)+kv('Email',F.email)+kv('Location',F.location)+kv('Event type',F.eventType)+kv('Service',F.service)+
               kv('Captured by',F.capturedBy)+kv('Enquiry date',F.enquiryDate)+kv('Form remark',F.remark) : '') + '</div>';
   if(e.form) h += '<b class="small">EVENT BRIEF</b><div class="brief">'+esc(F.brief||'—')+'</div>';
@@ -906,10 +882,6 @@ async function doUndo(markId){
 function followItems(){
   const n = now(), today = dayKey(n), out = [];
   const when = p => !p ? '' : p < n ? 'late' : dayKey(p)===today ? 'today' : '';
-  ST.data.tasks.filter(isOpen).forEach(t=>{
-    const w = when(t.planned); if(!w) return;
-    out.push({ who:t.toName||'—', type:'task', w, planned:t.planned, title:t.title, sub:'One-off task '+t.id+' · by '+t.byName, status:t.status, ev:null });
-  });
   pendingSteps(true).forEach(p=>{
     const w = when(p.planned); if(!w) return;
     const left = p.doer && (ST.boot.inactiveNames||[]).includes(nameN(p.doer));
@@ -922,13 +894,12 @@ function renderFollow(){
   const people = [...new Set(all.map(x=>x.who))].sort();
   const late = all.filter(x=>x.w==='late'), tod = all.filter(x=>x.w==='today');
   $('#cards').innerHTML = card(late.length,'Overdue (all people)','late') + card(tod.length,'Due today','') +
-    card(new Set(late.map(x=>x.who)).size,'People with overdue items','late') + card(all.filter(x=>x.type==='task').length,'One-off tasks to chase','');
+    card(new Set(late.map(x=>x.who)).size,'People with overdue items','late');
   const opt2 = (v,l,cur)=>'<option value="'+v+'" '+(cur===v?'selected':'')+'>'+l+'</option>';
   $('#filters').innerHTML =
     '<select onchange="ST.f.fuWhen=this.value;render()">'+opt2('both','Overdue + due today',f.fuWhen)+opt2('late','Overdue only',f.fuWhen)+opt2('today','Due today only',f.fuWhen)+'</select>' +
-    '<select onchange="ST.f.fuType=this.value;render()">'+opt2('all','Tasks + FMS steps',f.fuType)+opt2('task','One-off tasks only',f.fuType)+opt2('fms','FMS steps only',f.fuType)+'</select>' +
     '<select onchange="ST.f.fuWho=this.value;render()"><option value="">Everyone</option>'+people.map(p=>opt2(p,esc(p),f.fuWho)).join('')+'</select>';
-  const list = all.filter(x=>(f.fuWhen==='both'||x.w===f.fuWhen) && (f.fuType==='all'||x.type===f.fuType) && (!f.fuWho||x.who===f.fuWho));
+  const list = all.filter(x=>(f.fuWhen==='both'||x.w===f.fuWhen) && (!f.fuWho||x.who===f.fuWho));
   const mks = (ST.data.marks||[]).filter(m=>!m.synced && ST.data.events.some(e=>e.id===m.eventId)).sort((a,b)=>a.at-b.at);
   const marksHtml = '<div class="panel" style="margin-bottom:14px"><h4 style="background:#1d5fa8">Marked in dashboard · update the FMS<small>'+mks.length+' pending</small></h4>' +
     '<div class="tablewrap" style="border:0;border-radius:0;max-height:300px"><table><thead><tr><th>Event</th><th>Stage</th><th>Step</th><th>Marked</th><th>By</th><th>Marked at</th><th>Note</th><th></th></tr></thead><tbody>' +
@@ -963,58 +934,6 @@ function renderFollow(){
           '<td>'+(x.status?'<span class="pill '+sCls(x.status)+'">'+esc(x.status)+'</span>':'<span class="small">in FMS</span>')+'</td></tr>').join('') +
         '</tbody></table></div></div>';
     }).join('');
-}
-
-/* ---------------- one-off tasks ---------------- */
-function myTaskList(){ const id = me().id; return mineOnly() && me().seeAll ? ST.data.tasks.filter(t=>t.to===id || t.by===id) : ST.data.tasks; }
-function renderTasks(){
-  const f = ST.f, m = me();
-  let fh = '<select onchange="ST.f.tstatus=this.value;render()">' +
-    [['open','Open (not done)'],['late','Overdue'],['all','All statuses']].concat(ST.boot.statuses.map(s=>[s,s]))
-      .map(o=>'<option value="'+o[0]+'" '+(f.tstatus===o[0]?'selected':'')+'>'+o[1]+'</option>').join('') + '</select>';
-  fh += '<select onchange="ST.f.who=this.value;render()"><option value="">'+(m.owner?'Everyone':'Mine + assigned by me')+'</option>' +
-    (m.owner ? ST.boot.people.map(p=>'<option value="'+p.id+'" '+(f.who===p.id?'selected':'')+'>'+esc(p.name)+'</option>').join('')
-             : '<option value="mine" '+(f.who==='mine'?'selected':'')+'>Assigned to me</option><option value="byme" '+(f.who==='byme'?'selected':'')+'>Assigned by me</option>') + '</select>';
-  fh += '<input placeholder="Search task…" value="'+esc(f.q)+'" oninput="ST.f.q=this.value;renderTasksTable()">';
-  $('#filters').innerHTML = fh;
-  renderTasksTable();
-}
-function renderTasksTable(){
-  const f = ST.f, q = f.q.trim().toLowerCase(), id = me().id;
-  const list = myTaskList().filter(t=>{
-    if(f.tstatus==='open' && !isOpen(t)) return false;
-    if(f.tstatus==='late' && !isLate(t)) return false;
-    if(!['open','late','all'].includes(f.tstatus) && t.status!==f.tstatus) return false;
-    if(f.who==='mine' && t.to!==id) return false;
-    if(f.who==='byme' && t.by!==id) return false;
-    if(f.who && !['mine','byme'].includes(f.who) && t.to!==f.who && t.by!==f.who) return false;
-    if(q && !(t.title+' '+t.id+' '+t.toName+' '+t.byName).toLowerCase().includes(q)) return false;
-    return true;
-  }).sort((a,b)=>(a.planned||0)-(b.planned||0));
-  if(!list.length){ $('#view').innerHTML = '<div class="tablewrap"><div class="empty">No tasks.</div></div>'; return; }
-  let h = '<div class="tablewrap"><table><thead><tr><th>Task ID</th><th>Task</th><th>Allocated to</th><th>Allocated by</th><th>TAT</th><th>Planned</th><th>Actual</th><th>Delay</th><th>Status</th><th></th></tr></thead><tbody>';
-  list.forEach(t=>{
-    const d = delayOf(t.planned, t.actual, t.status==='Cancelled');
-    h += '<tr><td class="mono">'+esc(t.id)+'</td>' +
-      '<td><b>'+esc(t.title)+'</b>'+(t.desc?'<div class="small">'+esc(t.desc)+'</div>':'')+(t.remark?'<div class="small">Remark: '+esc(t.remark)+'</div>':'')+'</td>' +
-      '<td>'+esc(t.toName)+'</td><td>'+esc(t.byName)+'</td><td class="small">'+esc(t.tatValue)+' '+esc(t.tatUnit)+'</td>' +
-      '<td class="small">'+fmt(t.planned)+'</td><td class="small">'+fmt(t.actual)+'</td><td class="'+d.cls+'">'+d.txt+'</td>' +
-      '<td>'+statusCell(t)+'</td><td>'+(t.canManage?'<button class="btn ghost sm" onclick="editModal(\''+t.id+'\')">Edit</button>':'')+'</td></tr>';
-  });
-  $('#view').innerHTML = h + '</tbody></table></div>';
-}
-function statusCell(t){
-  if(!t.canStatus) return '<span class="pill '+sCls(t.status)+'">'+esc(t.status)+'</span>';
-  const opts = ST.boot.statuses.filter(s=>s!=='Cancelled' || t.canManage || t.status==='Cancelled');
-  return '<select class="st '+sCls(t.status)+'" onchange="setStatus(\''+t.id+'\',this)">' +
-    opts.map(s=>'<option '+(s===t.status?'selected':'')+'>'+s+'</option>').join('') + '</select>';
-}
-async function setStatus(id, el){
-  const val = el.value, t = ST.data.tasks.find(x=>x.id===id);
-  if(val==='Cancelled' && !confirm('Cancel this task?')){ el.value = t.status; return; }
-  el.disabled = true;
-  try{ await run('updateStatus', AUTH(), id, val); toast(id+' → '+val); await load(); }
-  catch(e){ el.value = t.status; el.disabled = false; }
 }
 
 /* ---------------- Live Updates: shared notepad (Date | Event | Doer | Particulars | Status) ----------------
@@ -1131,84 +1050,6 @@ async function luDelete(id){
 /* ---------------- modals ---------------- */
 function openModal(html, wide){ $('#modalBox').className = 'box' + (wide?' wide':''); $('#modalBox').innerHTML = html; $('#modal').classList.remove('hidden'); }
 function closeModal(){ $('#modal').classList.add('hidden'); }
-function tatFields(v,u){
-  return '<div class="row2"><div><label>TAT</label><input id="m_tv" type="number" min="0.5" step="0.5" value="'+esc(v||1)+'"></div>' +
-    '<div><label>Unit</label><select id="m_tu">'+ST.boot.units.map(x=>'<option '+(x===(u||'Days')?'selected':'')+'>'+x+'</option>').join('')+'</select></div></div>';
-}
-function assignable(){ const m = me(); return ST.boot.people.filter(p=>p.id!==m.id && (m.owner || !p.owner)); }
-function opt(p, sel){ return '<option value="'+p.id+'" '+(p.id===sel?'selected':'')+'>'+esc(p.name)+' — '+esc(p.roleLabel)+'</option>'; }
-
-function taskModal(type){
-  const m = me();
-  type = type || 'task';
-  if(!m.owner) type = 'task';
-  const sel = false
-    ? '<div class="typesel"><button class="'+(type==='task'?'on':'')+'" onclick="taskModal(\'task\')">One-off Task</button>' +
-      '<button class="'+(type==='enq'?'on':'')+'" onclick="taskModal(\'enq\')">Allocate Enquiry</button></div>'
-    : '';
-  if(type==='enq'){
-    const list = ST.data.allocatable || [];
-    const ppl = ST.boot.allocTargets || [];
-    openModal('<h3>Allocate enquiry</h3>' + sel +
-      (list.length
-        ? '<label>Enquiry</label><select id="m_ev">'+list.map(e=>'<option value="'+e.id+'">'+esc(e.id+' · '+e.company+(evName(e)?' – '+evName(e):'')+(e.client?' ('+e.client+')':'')+
-            (e.allocName?' — allocated: '+e.allocName:'')+(e.lead?' — FMS: '+e.lead:''))+'</option>').join('')+'</select>' +
-          '<label>Allocate to</label><select id="m_to">'+ppl.map(p=>'<option value="'+p.id+'">'+esc(p.name)+'</option>').join('')+'</select>' +
-          '<label>Note (optional)</label><input id="m_re" placeholder="e.g. Client prefers a call after 4 pm">' +
-          '<div class="small" style="margin-top:6px">The person gets a popup. Update the Doer in the FMS manually — the dashboard reads it from there.</div>'
-        : '<div class="empty">No new ongoing enquiries to allocate.</div>') +
-      '<div class="actions"><button class="btn ghost" onclick="closeModal()">Cancel</button>' +
-        (list.length?'<button class="btn" id="m_go" onclick="doAllocate()">Allocate</button>':'')+'</div>');
-    return;
-  }
-  openModal('<h3>New one-off task</h3>' + sel +
-    '<label>Task</label><input id="m_ti" placeholder="e.g. Order printer toner for the office">' +
-    '<label>Details (optional)</label><textarea id="m_de"></textarea>' +
-    '<label>Allocate to</label><select id="m_to">'+assignable().map(p=>opt(p)).join('')+'</select>' +
-    tatFields(1,'Days') +
-    '<div class="small" style="margin-top:6px">Planned = now + TAT (Sundays and holidays are counted)</div>' +
-    '<div class="actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="m_go" onclick="doCreate()">Assign</button></div>');
-  setTimeout(()=>$('#m_ti').focus(), 50);
-}
-async function doAllocate(){
-  $('#m_go').disabled = true;
-  const ev = $('#m_ev').value, to = $('#m_to').value, toName = $('#m_to').selectedOptions[0].textContent;
-  try{ await run('allocateEnquiry', AUTH(), ev, to, $('#m_re').value);
-       closeModal(); toast(ev+' allocated to '+toName); await load(); }
-  catch(e){ $('#m_go').disabled = false; }
-}
-async function doCreate(){
-  $('#m_go').disabled = true;
-  try{ const id = await run('createTask', AUTH(), { title:$('#m_ti').value, desc:$('#m_de').value, to:$('#m_to').value,
-                                                    tatValue:$('#m_tv').value, tatUnit:$('#m_tu').value });
-       closeModal(); toast(id+' assigned'); await load(); }
-  catch(e){ $('#m_go').disabled = false; }
-}
-function editModal(id){
-  const t = ST.data.tasks.find(x=>x.id===id);
-  const ppl = assignable();
-  if(!ppl.find(p=>p.id===t.to)) ppl.unshift(ST.boot.people.find(p=>p.id===t.to) || {id:t.to,name:t.toName,roleLabel:''});
-  openModal('<h3>Edit '+esc(id)+'</h3><div class="small">Allocated by '+esc(t.byName)+'</div>' +
-    '<label>Task</label><input id="m_ti" value="'+esc(t.title)+'">' +
-    '<label>Details</label><textarea id="m_de">'+esc(t.desc)+'</textarea>' +
-    '<label>Allocated to</label><select id="m_to">'+ppl.map(p=>opt(p,t.to)).join('')+'</select>' +
-    tatFields(t.tatValue, t.tatUnit) +
-    '<div class="small" style="margin-top:6px">On reassign, Planned is recalculated from the new assign time.</div>' +
-    '<label>Remark</label><input id="m_re" value="'+esc(t.remark)+'">' +
-    '<div class="actions">' + (t.status!=='Cancelled'?'<button class="btn red" onclick="cancelTask(\''+id+'\')">Cancel task</button>':'') +
-      '<span style="flex:1"></span><button class="btn ghost" onclick="closeModal()">Close</button><button class="btn" id="m_go" onclick="doEdit(\''+id+'\')">Save</button></div>');
-}
-async function doEdit(id){
-  $('#m_go').disabled = true;
-  try{ await run('editTask', AUTH(), id, { title:$('#m_ti').value, desc:$('#m_de').value, to:$('#m_to').value,
-                                          tatValue:$('#m_tv').value, tatUnit:$('#m_tu').value, remark:$('#m_re').value });
-       closeModal(); toast(id+' updated'); await load(); }
-  catch(e){ $('#m_go').disabled = false; }
-}
-async function cancelTask(id){
-  if(!confirm('Cancel '+id+'?')) return;
-  try{ await run('updateStatus', AUTH(), id, 'Cancelled'); closeModal(); toast(id+' cancelled'); await load(); }catch(e){}
-}
 
 /* ---------------- popups: task done (to allocator) / enquiry allocated (to allocatee) ---------------- */
 function handleNotifs(list){
