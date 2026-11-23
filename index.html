@@ -197,6 +197,13 @@
   .pop .box{border-top:3px solid var(--brand)}
   .toast{border-radius:4px}
   .modal{background:rgba(17,24,39,.4)}
+  /* Remark column: wraps instead of stretching the table */
+  .panel td.rmk{white-space:normal;min-width:200px;max-width:300px;word-break:break-word;font-size:12.5px;line-height:1.35}
+  /* Smaller KPI cards */
+  .cards{gap:8px;margin-bottom:10px}
+  .card{padding:6px 12px}
+  .card .n{font-size:16px;line-height:1.2}
+  .card .l{font-size:10.5px;letter-spacing:.3px}
 </style>
 </head>
 <body>
@@ -541,6 +548,8 @@ function leadCell(e){ return e.lead ? esc(e.lead) : '<span class="muted">—</sp
 function evName(e){ return (e && e.eventName) ? String(e.eventName) : ''; }
 function evNameCell(e){ return evName(e) ? esc(evName(e)) : '<span class="muted">—</span>'; }
 function evNameLine(e){ return evName(e) ? '<div class="small">'+esc(evName(e))+'</div>' : ''; }
+// Remark = "Remark" column of the CRES Enquiry Capture form (already sent by the backend as form.remark)
+function remarkCell(e){ const r = e && e.form ? String(e.form.remark||'').trim() : ''; return r ? esc(r) : '<span class="muted">—</span>'; }
 function evNameById(id){ return evName((ST.data.events||[]).find(x=>x.id===id)); }
 
 /* ---------------- dashboard (3 panels, as per format) ---------------- */
@@ -567,21 +576,21 @@ function renderDashBody(){
   const ong  = evs.filter(isOngoing);
 
   const p1 = panel('Confirmed Events', 'Order to Delivery FMS', 'var(--O2D)',
-    '<table><thead><tr><th>Status</th><th>Event ID</th><th>Company</th><th>Event Name</th><th>Client</th><th>Event Date</th><th>Allocated to</th></tr></thead><tbody>' +
+    '<table><thead><tr><th>Status</th><th>Event ID</th><th>Company</th><th>Event Name</th><th>Remark</th><th>Client</th><th>Event Date</th><th>Allocated to</th></tr></thead><tbody>' +
       conf.map(e=>'<tr class="click" onclick="eventModal(\''+e.id+'\')">' +
         '<td onclick="event.stopPropagation()"><select class="estat" onchange="donePick(this,\''+e.id+'\')"><option selected>Active</option><option>Event Done</option></select>' +
           (e.dashConfirmed ? '<div class="small muted" title="Confirmed on the dashboard — Ashwini to set Event Confirmed = Yes in the enquiry form">Form update pending</div>'
             : e.inO2D===false ? '<div class="small muted" title="Event Confirmed = Yes in the form — Order to Delivery FMS not created yet">O2D FMS pending</div>' : '') + '</td>' +
         '<td class="mono">'+e.id+'</td><td><b>'+esc(e.company)+'</b>'+
-        '</td><td>'+evNameCell(e)+'</td><td>'+esc(e.client)+'</td><td>'+esc(e.eventDate||'—')+'</td><td>'+leadCell(e)+'</td></tr>').join('') +
+        '</td><td>'+evNameCell(e)+'</td><td class="rmk">'+remarkCell(e)+'</td><td>'+esc(e.client)+'</td><td>'+esc(e.eventDate||'—')+'</td><td>'+leadCell(e)+'</td></tr>').join('') +
       '</tbody></table>');
 
   const p2 = panel('Ongoing Enquiries', 'Lead to Order FMS', 'var(--L2O)',
-    '<table><thead><tr><th class="srn">Sr.</th><th>Status</th><th>Client</th><th>Company</th><th>Event Name</th><th>Approx Event Date</th></tr></thead><tbody>' +
+    '<table><thead><tr><th class="srn">Sr.</th><th>Status</th><th>Client</th><th>Company</th><th>Event Name</th><th>Remark</th><th>Approx Event Date</th></tr></thead><tbody>' +
       ong.map((e,n)=>'<tr class="click" onclick="eventModal(\''+e.id+'\')"><td class="srn">'+(n+1)+'</td>' +
         '<td onclick="event.stopPropagation()"><select class="estat" onchange="statusPick(this,\''+e.id+'\')"><option selected>Active</option>'+(me().canConfirm?'<option>Confirmed</option>':'')+'<option>Cancelled</option></select></td>' +
         '<td>'+esc(e.client)+'</td><td><b>'+esc(e.company)+'</b>'+
-        tags(e)+'<div class="mono">'+e.id+(e.lead?' · '+esc(e.lead):'')+'</div></td><td>'+evNameCell(e)+'</td><td>'+esc(e.eventDate||'—')+'</td></tr>').join('') +
+        tags(e)+'<div class="mono">'+e.id+(e.lead?' · '+esc(e.lead):'')+'</div></td><td>'+evNameCell(e)+'</td><td class="rmk">'+remarkCell(e)+'</td><td>'+esc(e.eventDate||'—')+'</td></tr>').join('') +
       '</tbody></table>');
 
   // Layout: Confirmed Events | Ongoing Enquiries. Mine: empty panels are hidden.
