@@ -197,6 +197,46 @@
   .pop .box{border-top:3px solid var(--brand)}
   .toast{border-radius:4px}
   .modal{background:rgba(17,24,39,.4)}
+  /* Today snapshot (full screen) */
+  #snap{position:fixed;inset:0;z-index:40;background:#eef0f3;display:none;flex-direction:column}
+  .snap-bar{display:flex;align-items:center;gap:10px;padding:8px 14px;background:#fff;border-bottom:1px solid var(--line)}
+  .snap-bar input{padding:5px 8px;border:1px solid var(--line);border-radius:4px}
+  #snap_wrap{flex:1;overflow:auto;padding:10px}
+  #snapArea{background:#fff;padding:1em 1.1em;border:1px solid var(--line);font-size:15px;color:var(--ink)}
+  .sn-head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid var(--ink);padding-bottom:.45em;margin-bottom:.7em;gap:1em}
+  .sn-title{font-weight:700;font-size:1.35em} .sn-date{font-size:1em;color:#374151}
+  .sn-sum{text-align:right;font-size:.85em;color:#374151;line-height:1.5} .sn-st{margin-left:.6em;white-space:nowrap} .sn-st.done{color:var(--ok)}
+  .sn-grid{columns:17em;column-gap:.6em}
+  .sn-card{border:1px solid var(--line);border-radius:4px;padding:.45em .6em;break-inside:avoid;display:inline-block;width:100%;margin-bottom:.6em}
+  .sn-who{font-weight:700;border-bottom:1px solid #e5e7eb;padding-bottom:.25em;margin-bottom:.3em;display:flex;justify-content:space-between}
+  .sn-who span{font-weight:600;color:var(--muted);font-size:.85em}
+  .sn-it{display:flex;gap:.45em;padding:.2em 0;line-height:1.25} .sn-it + .sn-it{border-top:1px dotted #e5e7eb}
+  .sn-ic{width:1em;flex:none;text-align:center;color:#374151} .sn-it.done .sn-ic{color:var(--ok)} .sn-it.done .sn-tx{color:var(--muted)}
+  .sn-ev{font-size:.8em;color:var(--muted)} .sn-tx{font-size:.95em}
+  /* Notification list */
+  .nf-head{display:flex;align-items:center;gap:8px}
+  #nf_list{max-height:60vh;overflow:auto;margin-top:6px}
+  .nf{padding:8px 10px;border:1px solid var(--line);border-radius:4px;margin-bottom:6px;cursor:pointer;background:#fff}
+  .nf:hover{background:#f6f7f9} .nf.new{border-left:3px solid var(--late);background:#fff} .nf.new .nf-msg{font-weight:600}
+  .nf-msg{line-height:1.35;margin-bottom:2px}
+  /* On Hold enquiries */
+  .tag.hold{background:#fff;color:#4b5563;border:1px dashed #6b7280}
+  .panel tr.hold td{color:var(--muted)} .panel tr.hold td b{color:#4b5563}
+  .estat.is-hold{border-style:dashed}
+  .hold-note{margin-top:3px;font-size:12px;color:#4b5563;border-top:1px dashed var(--line);padding-top:3px}
+  /* Live Updates: grouped Date → Doer view + multi-event add form */
+  table.lug td{vertical-align:top}
+  table.lug td.g-dt{font-weight:700;white-space:nowrap;background:#fafafa;border-right:1px solid var(--line)}
+  table.lug td.g-who{white-space:nowrap;border-right:1px solid #eceef1}
+  table.lug tr.g-date td{border-top:2px solid var(--line)}
+  table.lug tr.g-doer td:not(.g-dt){border-top:1px solid #cfd3d9}
+  table.lug tr.lu-done td:not(.g-dt):not(.g-who){color:var(--muted)}
+  .lu-line{border:1px solid var(--line);border-radius:4px;padding:8px 12px 10px;margin-top:10px;background:#fafafa}
+  .lu-lh{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700}
+  .lu-x{border:0;background:none;color:var(--late);cursor:pointer;font-size:12px;font-weight:600}
+  .lu-lg{display:grid;grid-template-columns:2.2fr .8fr 1fr 1.2fr;gap:8px}
+  .lu-line textarea{min-height:46px}
+  @media (max-width:700px){ .lu-lg{grid-template-columns:1fr 1fr} .lu-lg > div:first-child{grid-column:1 / -1} }
   /* Remark column: wraps instead of stretching the table */
   .panel td.rmk{white-space:normal;min-width:200px;max-width:300px;word-break:break-word;font-size:12.5px;line-height:1.35}
   /* Smaller KPI cards */
@@ -541,15 +581,21 @@ function tags(e){
     nw = age > 864e5*1 ? '<span class="tag new stale" title="No action for over 24h (Client Briefing not done)">NEW · '+dur(age).split(' ')[0]+'</span>'
                        : '<span class="tag new" title="Client Briefing not done yet">NEW</span>';
   }
-  return nw;            // only the NEW tag (ongoing enquiries) — no other labels next to event names
+  if(e.hold && e.phase==='Ongoing') nw += '<span class="tag hold" title="'+esc(holdTitle(e))+'">ON HOLD</span>';
+  return nw;            // NEW and ON HOLD tags only (ongoing enquiries)
 }
+function holdTitle(e){ const h = e.hold||{}; return 'On hold' + (h.at?' since '+fmtShort(h.at):'') + (h.byName?' · '+h.byName:'') + (h.note?' · '+h.note:''); }
 function leadCell(e){ return e.lead ? esc(e.lead) : '<span class="muted">—</span>'; }
 // Event Name (from the enquiry form; blank for older enquiries)
 function evName(e){ return (e && e.eventName) ? String(e.eventName) : ''; }
 function evNameCell(e){ return evName(e) ? esc(evName(e)) : '<span class="muted">—</span>'; }
 function evNameLine(e){ return evName(e) ? '<div class="small">'+esc(evName(e))+'</div>' : ''; }
 // Remark = "Remark" column of the CRES Enquiry Capture form (already sent by the backend as form.remark)
-function remarkCell(e){ const r = e && e.form ? String(e.form.remark||'').trim() : ''; return r ? esc(r) : '<span class="muted">—</span>'; }
+function remarkCell(e){
+  const r = e && e.form ? String(e.form.remark||'').trim() : '';           // from the enquiry form (read-only)
+  const h = e && e.hold ? '<div class="hold-note">⏸ Hold'+(e.hold.note ? ': '+esc(e.hold.note) : (e.hold.at ? ' since '+fmtShort(e.hold.at) : ''))+'</div>' : '';
+  return (r ? esc(r) : (h ? '' : '<span class="muted">—</span>')) + h;
+}
 function evNameById(id){ return evName((ST.data.events||[]).find(x=>x.id===id)); }
 
 /* ---------------- dashboard (3 panels, as per format) ---------------- */
@@ -573,7 +619,7 @@ function renderDash(){
 function renderDashBody(){
   const evs = EVS().filter(dashMatch);
   const conf = evs.filter(isConf);
-  const ong  = evs.filter(isOngoing);
+  const ong  = evs.filter(isOngoing).sort((a,b)=>(!!a.hold)-(!!b.hold));   // On Hold enquiries go to the bottom
 
   const p1 = panel('Confirmed Events', 'Order to Delivery FMS', 'var(--O2D)',
     '<table><thead><tr><th>Status</th><th>Event ID</th><th>Company</th><th>Event Name</th><th>Remark</th><th>Client</th><th>Event Date</th><th>Allocated to</th></tr></thead><tbody>' +
@@ -587,8 +633,8 @@ function renderDashBody(){
 
   const p2 = panel('Ongoing Enquiries', 'Lead to Order FMS', 'var(--L2O)',
     '<table><thead><tr><th class="srn">Sr.</th><th>Status</th><th>Client</th><th>Company</th><th>Event Name</th><th>Remark</th><th>Approx Event Date</th></tr></thead><tbody>' +
-      ong.map((e,n)=>'<tr class="click" onclick="eventModal(\''+e.id+'\')"><td class="srn">'+(n+1)+'</td>' +
-        '<td onclick="event.stopPropagation()"><select class="estat" onchange="statusPick(this,\''+e.id+'\')"><option selected>Active</option>'+(me().canConfirm?'<option>Confirmed</option>':'')+'<option>Cancelled</option></select></td>' +
+      ong.map((e,n)=>'<tr class="click'+(e.hold?' hold':'')+'" onclick="eventModal(\''+e.id+'\')"><td class="srn">'+(n+1)+'</td>' +
+        '<td onclick="event.stopPropagation()">'+ongStatusSelect(e)+'</td>' +
         '<td>'+esc(e.client)+'</td><td><b>'+esc(e.company)+'</b>'+
         tags(e)+'<div class="mono">'+e.id+(e.lead?' · '+esc(e.lead):'')+'</div></td><td>'+evNameCell(e)+'</td><td class="rmk">'+remarkCell(e)+'</td><td>'+esc(e.eventDate||'—')+'</td></tr>').join('') +
       '</tbody></table>');
@@ -693,7 +739,7 @@ function eventModal(id){
   const e = ST.data.events.find(x=>x.id===id); if(!e) return;
   const F = e.form || {};
   let h = '<h3>'+esc(e.company||'—')+' <span class="mono">'+e.id+'</span></h3>' +
-    '<div class="kv">'+kv('Event name',evName(e))+kv('Client',e.client)+kv('Event date',e.eventDate)+kv('Stage',e.phase)+kv('Lead (FMS Doer)',e.lead||'—')+
+    '<div class="kv">'+kv('Event name',evName(e))+kv('Client',e.client)+kv('Event date',e.eventDate)+kv('Stage',e.phase)+(e.hold?kv('On Hold',[e.hold.at?fmtShort(e.hold.at):'', e.hold.byName, e.hold.note].filter(Boolean).join(' · ')):'')+kv('Lead (FMS Doer)',e.lead||'—')+
     (e.form ? kv('Phone',F.phone)+kv('Email',F.email)+kv('Location',F.location)+kv('Event type',F.eventType)+kv('Service',F.service)+
               kv('Captured by',F.capturedBy)+kv('Enquiry date',F.enquiryDate)+kv('Form remark',F.remark) : '') + '</div>';
   if(e.form) h += '<b class="small">EVENT BRIEF</b><div class="brief">'+esc(F.brief||'—')+'</div>';
@@ -843,19 +889,41 @@ async function doMark(evId, stage, i, val){
   catch(e){ const b = $('#m_go'); if(b) b.disabled = false; }
 }
 /* ---------------- Enquiry status: Cancelled hides the enquiry from the dashboard (FMS untouched) ---------------- */
-function statusPick(sel, evId){
-  if(sel.value === 'Confirmed'){ sel.value = 'Active'; return confirmPick(evId); }
-  if(sel.value !== 'Cancelled') return;
-  sel.value = 'Active';                      // stays Active until confirmed
-  const e = ST.data.events.find(x=>x.id===evId) || {};
-  openModal('<h3>Mark enquiry as Cancelled</h3>' +
-    '<div class="kv">'+kv('Enquiry', (e.company||'')+' ('+evId+')')+kv('Event name', evName(e))+kv('Client', e.client||'—')+'</div>' +
-    '<label>Reason (optional)</label><textarea id="m_note" placeholder="e.g. Budget mismatch / client went with another agency"></textarea>' +
-    '<div class="small" style="margin-top:6px">It will be hidden from the dashboard for everyone. The FMS row stays as it is.</div>' +
-    '<div class="actions"><button class="btn ghost" onclick="closeModal()">Close</button><button class="btn" id="m_go" style="background:var(--late);border-color:var(--late)" onclick="doLost(\''+evId+'\')">Mark Cancelled</button></div>');
-  setTimeout(()=>{ const t = $('#m_note'); if(t) t.focus(); }, 50);
+function ongStatusSelect(e){
+  const cur = e.hold ? 'On Hold' : 'Active';
+  const opts = ['Active'].concat(me().canConfirm ? ['Confirmed'] : [], ['On Hold','Cancelled','Lost']);
+  return '<select class="estat'+(e.hold?' is-hold':'')+'" onchange="statusPick(this,\''+e.id+'\')">'+opts.map(o=>'<option '+(o===cur?'selected':'')+'>'+o+'</option>').join('')+'</select>';
 }
-/* ---------------- Enquiry confirmed on the dashboard → Confirmed Events + Ashwini updates the form ---------------- */
+const ESTAT_TEXT = {
+  'On Hold':   { title:'Put enquiry On Hold',      btn:'Put On Hold',   ph:'e.g. Client put the budget on hold, follow up in January',
+                 info:'It stays in Ongoing Enquiries with an ON HOLD tag (moved to the bottom). Set it back to Active any time.' },
+  'Cancelled': { title:'Mark enquiry as Cancelled', btn:'Mark Cancelled', ph:'e.g. Client cancelled the event',
+                 info:'It will be hidden from the dashboard for everyone. The FMS row stays as it is.' },
+  'Lost':      { title:'Mark enquiry as Lost',      btn:'Mark Lost',      ph:'e.g. Budget mismatch / client went with another agency',
+                 info:'It will be hidden from the dashboard for everyone and recorded as Lost. The FMS row stays as it is.' }
+};
+function statusPick(sel, evId){
+  const e = ST.data.events.find(x=>x.id===evId) || {};
+  const prev = e.hold ? 'On Hold' : 'Active', val = sel.value;
+  sel.value = prev;                          // stays as it was until the change is saved
+  if(val === prev) return;
+  if(val === 'Confirmed') return confirmPick(evId);
+  if(val === 'Active') return doEstat(evId, 'Active', '');
+  const t = ESTAT_TEXT[val]; if(!t) return;
+  openModal('<h3>'+t.title+'</h3>' +
+    '<div class="kv">'+kv('Enquiry', (e.company||'')+' ('+evId+')')+kv('Event name', evName(e))+kv('Client', e.client||'—')+'</div>' +
+    '<label>Note (optional)</label><textarea id="m_note" placeholder="'+esc(t.ph)+'"></textarea>' +
+    '<div class="small" style="margin-top:6px">'+t.info+'</div>' +
+    '<div class="actions"><button class="btn ghost" onclick="closeModal()">Close</button><button class="btn" id="m_go"'+(val==='On Hold'?'':' style="background:var(--late);border-color:var(--late)"')+
+      ' onclick="doEstat(\''+evId+'\',\''+val+'\')">'+t.btn+'</button></div>');
+  setTimeout(()=>{ const x = $('#m_note'); if(x) x.focus(); }, 50);
+}
+async function doEstat(evId, status, note){
+  const b = $('#m_go'); if(b) b.disabled = true;
+  if(note === undefined){ const n = $('#m_note'); note = n ? n.value : ''; }
+  try{ await run('setEnquiryStatus', AUTH(), evId, status, note); closeModal(); toast(evId+' → '+status); await load(); }
+  catch(e){ if(b) b.disabled = false; }
+}
 function confirmPick(evId){
   const e = ST.data.events.find(x=>x.id===evId) || {};
   openModal('<h3>Mark enquiry as Confirmed</h3>' +
@@ -868,11 +936,6 @@ function confirmPick(evId){
 async function doConfirm(evId){
   $('#m_go').disabled = true;
   try{ await run('setEnquiryStatus', AUTH(), evId, 'Confirmed', $('#m_note').value); closeModal(); toast('Enquiry marked Confirmed — Ashwini notified'); await load(); }
-  catch(e){ const b = $('#m_go'); if(b) b.disabled = false; }
-}
-async function doLost(evId){
-  $('#m_go').disabled = true;
-  try{ await run('setEnquiryStatus', AUTH(), evId, 'Cancelled', $('#m_note').value); closeModal(); toast('Enquiry marked Cancelled'); await load(); }
   catch(e){ const b = $('#m_go'); if(b) b.disabled = false; }
 }
 /* ---------------- Confirmed events: "Event Done" hides the event from the dashboard (FMS untouched) ---------------- */
@@ -987,16 +1050,90 @@ function renderLive(){
     '<select onchange="ST.f.lwhen=this.value;renderLive()">' + o('today','Today',f.lwhen) + o('week','This week',f.lwhen) + o('month','This month',f.lwhen) +
       months.map(k=>o(k, monthLabel(k), f.lwhen)).join('') + o('all','All dates',f.lwhen) + '</select>' +
     '<select onchange="ST.f.lwho=this.value;renderLive()"><option value="">All employees</option>' +
-      ST.boot.people.map(p=>o(p.id, p.name, f.lwho)).join('') + '</select>' +
+      luPeople().map(p=>o(p.id, p.name, f.lwho)).join('') + '</select>' +
     '<select onchange="ST.f.lev=this.value;renderLive()" style="max-width:300px"><option value="">All events</option>' + o(off.id, off.label, f.lev) +
       Object.keys(evIds).filter(k=>k!==off.id).sort().reverse().map(k=>o(k, evIds[k], f.lev)).join('') + '</select>' +
     '<select onchange="ST.f.lst=this.value;renderLive()"><option value="">All status</option>' + (ST.boot.updStatuses||[]).map(s=>o(s, s, f.lst)).join('') + '</select>' +
     '<input placeholder="Search…" value="'+esc(f.lq)+'" oninput="ST.f.lq=this.value;renderLiveTable()">' +
-    (ed ? '<span style="flex:1"></span><button class="btn" onclick="luModal()">+ Add update</button>' : '');
+    '<span style="flex:1"></span><button class="btn ghost" onclick="snapOpen()" title="Whole day on one screen, with a Download image button">📷 Today snapshot</button>' +
+    (ed ? '<button class="btn" onclick="luModal()">+ Add update</button>' : '');
   renderLiveTable();
 }
+/* ---------------- Today snapshot: whole day on one screen + PNG download ----------------
+   Cards per doer (DOER_ORDER), one short line per update. Text shrinks until everything fits the screen. */
+const SNAP_ICON = { 'Done':'✓', 'In Progress':'●', 'Pending':'○', 'On Hold':'‖' };
+function snapOpen(){
+  let el = $('#snap');
+  if(!el){ el = document.createElement('div'); el.id = 'snap'; document.body.appendChild(el); }
+  ST.snapDay = ST.snapDay || isoDay(now());
+  el.innerHTML = '<div class="snap-bar"><b>Today snapshot</b>' +
+    '<input type="date" id="snap_day" value="'+ST.snapDay+'" onchange="ST.snapDay=this.value;snapRender()">' +
+    '<span class="small muted" id="snap_who"></span><span style="flex:1"></span>' +
+    '<button class="btn" id="snap_png" onclick="snapPng()">Download image</button>' +
+    '<button class="btn ghost" onclick="snapClose()">Close</button></div>' +
+    '<div id="snap_wrap"><div id="snapArea"></div></div>';
+  el.style.display = 'flex';
+  snapRender();
+  window.addEventListener('resize', snapFit);
+}
+function snapClose(){ const el = $('#snap'); if(el) el.style.display = 'none'; window.removeEventListener('resize', snapFit); }
+function snapRender(){
+  const day = ST.snapDay, who = ST.f.lwho;
+  const list = (ST.data.updates||[]).filter(u=>u.date && isoDay(u.date)===day && (!who || u.doer===who));
+  const by = {};
+  list.forEach(u=>{ (by[u.doer] = by[u.doer] || { name:u.doerName, items:[] }).items.push(u); });
+  const doers = Object.keys(by).sort((a,b)=>doerRank(by[a].name)-doerRank(by[b].name) || String(by[a].name).localeCompare(String(by[b].name)));
+  const p = day.split('-'), label = new Date(Date.UTC(+p[0],+p[1]-1,+p[2])).toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'});
+  const cnt = s => list.filter(u=>u.status===s).length;
+  $('#snap_who').textContent = who ? 'Filtered: ' + ((ST.boot.people.find(p=>p.id===who)||{}).name||'') : '';
+  $('#snapArea').innerHTML =
+    '<div class="sn-head"><div><div class="sn-title">CRES · Live Updates</div><div class="sn-date">'+esc(label)+'</div></div>' +
+      '<div class="sn-sum">'+list.length+' updates · '+doers.length+' people<br>' +
+      '<span class="sn-st done">✓ '+cnt('Done')+' Done</span> <span class="sn-st">● '+cnt('In Progress')+' In Progress</span> <span class="sn-st">○ '+cnt('Pending')+' Pending</span> <span class="sn-st">‖ '+cnt('On Hold')+' On Hold</span></div></div>' +
+    (doers.length ? '<div class="sn-grid">' + doers.map(id=>{
+      const g = by[id], items = g.items.slice().sort((a,b)=>luRank(a)-luRank(b) || (a.at||0)-(b.at||0));
+      return '<div class="sn-card"><div class="sn-who">'+esc(g.name)+'<span>'+items.length+'</span></div>' +
+        items.map(u=>'<div class="sn-it'+(u.status==='Done'?' done':'')+'"><span class="sn-ic" title="'+esc(u.status)+'">'+(SNAP_ICON[u.status]||'○')+'</span>' +
+          '<div><div class="sn-ev">'+esc(u.eventId==='OFF-EVENT' ? 'Off-event work' : (u.event||u.eventId))+'</div><div class="sn-tx">'+esc(u.text)+'</div></div></div>').join('') + '</div>';
+    }).join('') + '</div>' : '<div class="empty">No live updates on this day.</div>');
+  snapFit();
+}
+// Largest text size (15px → 8px) at which the whole snapshot fits the screen without scrolling
+function snapFit(){
+  const wrap = $('#snap_wrap'), area = $('#snapArea'); if(!wrap || !area) return;
+  let fs = 15; area.style.fontSize = fs + 'px';
+  while(fs > 8 && wrap.scrollHeight > wrap.clientHeight){ fs -= 0.5; area.style.fontSize = fs + 'px'; }
+}
+function snapLib(){
+  if(window.html2canvas) return Promise.resolve();
+  return new Promise((res, rej)=>{
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    sc.onload = res; sc.onerror = () => rej(new Error('Could not load the image tool — check the internet connection'));
+    document.head.appendChild(sc);
+  });
+}
+async function snapPng(){
+  const b = $('#snap_png'); b.disabled = true; b.textContent = 'Preparing…';
+  try{
+    await snapLib();
+    const canvas = await window.html2canvas($('#snapArea'), { scale: 2, backgroundColor: '#ffffff' });
+    const a = document.createElement('a');
+    a.download = 'CRES-live-updates-' + ST.snapDay + '.png';
+    a.href = canvas.toDataURL('image/png');
+    document.body.appendChild(a); a.click(); a.remove();
+    toast('Image downloaded');
+  }catch(e){ toast((e && e.message) || 'Could not make the image', 'err'); }
+  finally{ b.disabled = false; b.textContent = 'Download image'; }
+}
+
+// Doer order for Live Updates (Config → DOER_ORDER); names not listed come after, A–Z
+function doerRank(name){ const o = (ST.boot.doerOrder||[]).map(nameN); const i = o.indexOf(nameN(name)); return i < 0 ? 999 : i; }
+function luPeople(){ return ST.boot.people.slice().sort((a,b)=>doerRank(a.name)-doerRank(b.name) || a.name.localeCompare(b.name)); }
+// Grouped like the PMS sheet: Date (once) → Doer (once) → one line per event
 function renderLiveTable(){
   const f = ST.f, q = f.lq.trim().toLowerCase(), ed = me().canEditUpdates, myId = me().id;
+  const dk = u => u.date ? isoDay(u.date) : '';
   const list = (ST.data.updates||[]).filter(u=>{
     if(!luInRange(u)) return false;
     if(mineOnly() && u.doer!==myId) return false;
@@ -1005,56 +1142,128 @@ function renderLiveTable(){
     if(f.lst && u.status!==f.lst) return false;
     if(q && !(u.event+' '+u.doerName+' '+u.text).toLowerCase().includes(q)) return false;
     return true;
-  }).sort((a,b)=>luRank(a)-luRank(b) || (b.date||0)-(a.date||0) || (b.at||0)-(a.at||0));
-  let h = '<div class="tablewrap"><table class="lu"><thead><tr><th class="srn">Sr.</th><th>Date</th><th>Event</th><th>Doer</th><th>Particulars</th><th>Status</th>'+(ed?'<th></th>':'')+'</tr></thead><tbody>';
-  if(!list.length) h += '<tr><td colspan="'+(ed?7:6)+'"><div class="empty">No updates for this filter.'+(ed?' Use “+ Add update” to write one.':'')+'</div></td></tr>';
-  list.forEach((u,i)=>{
+  }).sort((a,b)=> dk(b).localeCompare(dk(a)) || doerRank(a.doerName)-doerRank(b.doerName) ||
+                 String(a.doerName).localeCompare(String(b.doerName)) || luRank(a)-luRank(b) || (a.at||0)-(b.at||0));
+  const cols = ed ? 6 : 5;
+  let h = '<div class="tablewrap"><table class="lu lug"><thead><tr><th>Date</th><th>Doer</th><th>Event</th><th>Particulars</th><th>Status</th>'+(ed?'<th></th>':'')+'</tr></thead><tbody>';
+  if(!list.length) h += '<tr><td colspan="'+cols+'"><div class="empty">No updates for this filter.'+(ed?' Use “+ Add update” to write one.':'')+'</div></td></tr>';
+  const nDate = {}, nDoer = {};
+  list.forEach(u=>{ nDate[dk(u)] = (nDate[dk(u)]||0)+1; const k = dk(u)+'|'+u.doer; nDoer[k] = (nDoer[k]||0)+1; });
+  let lastD = null, lastK = null;
+  list.forEach(u=>{
+    const d = dk(u), k = d+'|'+u.doer, newD = d!==lastD, newK = k!==lastK;
     const st = ed
       ? '<select class="st '+sCls(u.status)+'" onchange="luStatus(\''+u.id+'\',this)">'+(ST.boot.updStatuses||[]).map(s=>'<option '+(s===u.status?'selected':'')+'>'+s+'</option>').join('')+'</select>'
       : '<span class="pill '+sCls(u.status)+'">'+esc(u.status)+'</span>';
-    h += '<tr class="'+(u.status==='Done'?'lu-done':'')+'"><td class="srn">'+(i+1)+'</td><td class="small" style="white-space:nowrap">'+fmtDay(u.date)+'</td>' +
-      '<td>'+luEventCell(u)+'</td>' +
-      '<td><b>'+esc(u.doerName)+'</b></td>' +
+    h += '<tr class="'+(newD?'g-date ':'')+(newK?'g-doer ':'')+(u.status==='Done'?'lu-done':'')+'">';
+    if(newD) h += '<td class="g-dt" rowspan="'+nDate[d]+'">'+fmtDay(u.date)+'</td>';
+    if(newK) h += '<td class="g-who" rowspan="'+nDoer[k]+'"><b>'+esc(u.doerName)+'</b><div class="small muted">'+nDoer[k]+' event'+(nDoer[k]>1?'s':'')+'</div></td>';
+    h += '<td>'+luEventCell(u)+'</td>' +
       '<td class="lu-text">'+esc(u.text)+'<div class="small muted" title="Last updated">'+esc(u.updByName||u.byName)+' · '+fmt(u.updAt||u.at)+'</div></td>' +
       '<td>'+st+'</td>'+(ed?'<td><button class="btn ghost sm" onclick="luModal(\''+u.id+'\')">Edit</button></td>':'')+'</tr>';
+    lastD = d; lastK = k;
   });
   $('#view').innerHTML = h + '</tbody></table></div>';
 }
+// Event box you can type in ("baj" → Bajaj). Choices = Off-event work + every event on the dashboard (Confirmed + Ongoing)
+function luEvChoices(){
+  const off = ST.boot.offEvent || {id:'OFF-EVENT', label:'Off-event work'};
+  const evs = luEvents();
+  return [{id:off.id, label:off.label}]
+    .concat(evs.filter(isConf).map(e=>({id:e.id, label:luEvLabel(e)+' (Confirmed)'})))
+    .concat(evs.filter(isOngoing).map(e=>({id:e.id, label:luEvLabel(e)})));
+}
+function luEvDatalist(){ return '<datalist id="lu_evlist">'+luEvChoices().map(c=>'<option value="'+esc(c.label)+'"></option>').join('')+'</datalist>'; }
+function luEvLabelFor(id, fallback){ const c = luEvChoices().find(x=>x.id===id); return c ? c.label : (fallback || id || ''); }
+// typed text → Event ID: exact label / exact ID / the only label that contains the text
+function luResolveEv(text){
+  const t = String(text||'').trim().toLowerCase(); if(!t) return '';
+  const ch = luEvChoices();
+  const hit = ch.find(c=>c.label.toLowerCase()===t) || ch.find(c=>c.id.toLowerCase()===t);
+  if(hit) return hit.id;
+  const part = ch.filter(c=>c.label.toLowerCase().includes(t));
+  return part.length===1 ? part[0].id : '';
+}
+function luEvInput(cls, value){
+  return '<input class="'+cls+'" list="lu_evlist" autocomplete="off" placeholder="Event — type to search (e.g. baj)" value="'+esc(value||'')+'">';
+}
+function luLineHtml(){
+  return '<div class="lu-line"><div class="lu-lh"><span></span><button type="button" class="lu-x" onclick="luRmLine(this)">Remove</button></div>' +
+    '<div class="lu-lg"><div><label>Event</label>'+luEvInput('l_ev','')+'</div>' +
+    '<div><label>TAT</label><input class="l_tat" type="number" min="0" step="1" value="1"></div>' +
+    '<div><label>Unit</label><select class="l_unit" onchange="this.closest(\'.lu-line\').querySelector(\'.l_tat\').step=this.value===\'Hours\'?\'0.5\':\'1\'"><option>Days</option><option>Hours</option></select></div>' +
+    '<div><label>Status</label><select class="l_st">'+(ST.boot.updStatuses||[]).map(s=>'<option '+(s==='In Progress'?'selected':'')+'>'+s+'</option>').join('')+'</select></div></div>' +
+    '<label>Particulars</label><textarea class="l_text" placeholder="e.g. Working on stall design"></textarea></div>';
+}
+function luAddLine(){ $('#lu_lines').insertAdjacentHTML('beforeend', luLineHtml()); luNumber(); }
+function luRmLine(b){ if(document.querySelectorAll('#lu_lines .lu-line').length===1) return toast('At least one event', 'err'); b.closest('.lu-line').remove(); luNumber(); }
+function luNumber(){
+  const ls = document.querySelectorAll('#lu_lines .lu-line');
+  ls.forEach((l,i)=>{ l.querySelector('.lu-lh span').textContent = 'Event '+(i+1); });
+  const b = $('#lu_go'); if(b) b.textContent = 'Add '+ls.length+' update'+(ls.length>1?'s':'');
+}
+function luDoerSelect(cur){
+  return '<select id="lu_doer"><option value="">— choose —</option>'+luPeople().map(p=>'<option value="'+p.id+'" '+(p.id===cur?'selected':'')+'>'+esc(p.name)+'</option>').join('')+'</select>';
+}
 function luModal(id){
   const u = id ? (ST.data.updates||[]).find(x=>x.id===id) : null;
-  const off = ST.boot.offEvent || {id:'OFF-EVENT', label:'Off-event work'};
-  const evs = luEvents(), cur = u ? u.eventId : '';
-  const known = !cur || cur===off.id || evs.some(e=>e.id===cur);
-  const evOpt = e => '<option value="'+e.id+'" '+(e.id===cur?'selected':'')+'>'+esc(luEvLabel(e))+'</option>';
-  openModal('<h3>'+(u?'Edit update':'Add live update')+'</h3>' +
-    '<div class="row2"><div><label>Date</label><input id="lu_date" type="date" value="'+(u&&u.date?isoDay(u.date):isoDay(now()))+'"></div>' +
-    '<div><label>Status</label><select id="lu_st">'+(ST.boot.updStatuses||[]).map(s=>'<option '+(s===(u?u.status:'In Progress')?'selected':'')+'>'+s+'</option>').join('')+'</select></div></div>' +
-    '<label>Event</label><select id="lu_ev"><option value="">— choose —</option>' +
-      '<option value="'+off.id+'" '+(cur===off.id?'selected':'')+'>'+esc(off.label)+'</option>' +
-      (!known ? '<option value="'+esc(cur)+'" selected>'+esc(u.event||cur)+'</option>' : '') +
-      '<optgroup label="Confirmed events">'+evs.filter(isConf).map(evOpt).join('')+'</optgroup>' +
-      '<optgroup label="Ongoing enquiries">'+evs.filter(isOngoing).map(evOpt).join('')+'</optgroup></select>' +
-    '<div class="row2"><div><label>TAT</label><input id="lu_tat" type="number" min="0" step="1" value="'+esc(u&&u.tat!==''&&u.tat!=null?u.tat:1)+'"></div>' +
+  if(!u){
+    // ADD: Date + Doer once, then one line per event
+    openModal('<h3>Add live update</h3>' + luEvDatalist() +
+      '<div class="row2"><div><label>Date</label><input id="lu_date" type="date" value="'+isoDay(now())+'"></div>' +
+      '<div><label>Doer</label>'+luDoerSelect('')+'</div></div>' +
+      '<div id="lu_lines"></div>' +
+      '<button type="button" class="btn ghost" style="margin-top:10px" onclick="luAddLine()">+ Add another event</button>' +
+      '<div class="small muted" style="margin-top:6px">Each event becomes its own row in the Live Updates sheet. TAT: Days = by 23:59 that many days after it is added (0 = today), Hours = exact.</div>' +
+      '<div class="actions"><button class="btn ghost" onclick="closeModal()">Close</button><button class="btn" id="lu_go" onclick="luSave()">Add</button></div>', true);
+    luAddLine();
+    return;
+  }
+  // EDIT: one row, as before (Event box is typeable too)
+  openModal('<h3>Edit update</h3>' + luEvDatalist() +
+    '<div class="row2"><div><label>Date</label><input id="lu_date" type="date" value="'+(u.date?isoDay(u.date):isoDay(now()))+'"></div>' +
+    '<div><label>Status</label><select id="lu_st">'+(ST.boot.updStatuses||[]).map(s=>'<option '+(s===u.status?'selected':'')+'>'+s+'</option>').join('')+'</select></div></div>' +
+    '<label>Event</label>'+luEvInput('', luEvLabelFor(u.eventId, u.event)).replace('<input ', '<input id="lu_ev" ') +
+    '<div class="row2"><div><label>TAT</label><input id="lu_tat" type="number" min="0" step="1" value="'+esc(u.tat!==''&&u.tat!=null?u.tat:1)+'"></div>' +
       '<div><label>Unit</label><select id="lu_unit" onchange="$(\'#lu_tat\').step=this.value===\'Hours\'?\'0.5\':\'1\'">' +
-        ['Days','Hours'].map(x=>'<option '+(x===((u&&u.tatUnit)||'Days')?'selected':'')+'>'+x+'</option>').join('')+'</select></div></div>' +
-    '<div class="small muted" style="margin-top:4px">Days = by 23:59 that many days after it is added (0 = today). Hours = exact. Counted from when the row is added.</div>' +
-    '<label>Doer</label><select id="lu_doer"><option value="">— choose —</option>' +
-      ST.boot.people.map(p=>'<option value="'+p.id+'" '+(u&&u.doer===p.id?'selected':'')+'>'+esc(p.name)+'</option>').join('')+'</select>' +
-    '<label>Particulars</label><textarea id="lu_text" placeholder="What is being done, e.g. Vendor quotes for LED wall shared with client">'+esc(u?u.text:'')+'</textarea>' +
-    '<div class="actions">'+(u?'<button class="btn ghost" style="color:var(--late);margin-right:auto" onclick="luDelete(\''+u.id+'\')">Delete</button>':'') +
-      '<button class="btn ghost" onclick="closeModal()">Close</button><button class="btn" id="lu_go" onclick="luSave('+(u?'\''+u.id+'\'':'')+')">'+(u?'Save':'Add')+'</button></div>');
+        ['Days','Hours'].map(x=>'<option '+(x===(u.tatUnit||'Days')?'selected':'')+'>'+x+'</option>').join('')+'</select></div></div>' +
+    '<label>Doer</label>'+luDoerSelect(u.doer) +
+    '<label>Particulars</label><textarea id="lu_text">'+esc(u.text)+'</textarea>' +
+    '<div class="actions"><button class="btn ghost" style="color:var(--late);margin-right:auto" onclick="luDelete(\''+u.id+'\')">Delete</button>' +
+      '<button class="btn ghost" onclick="closeModal()">Close</button><button class="btn" id="lu_go" onclick="luSave(\''+u.id+'\')">Save</button></div>');
 }
+function luTatOk(tat, unit){ const tv = Number(tat); return tat!=='' && (unit==='Hours' ? tv>0 : (tv>=0 && Math.floor(tv)===tv)); }
 async function luSave(id){
-  const d = { date:$('#lu_date').value, eventId:$('#lu_ev').value, doer:$('#lu_doer').value, text:$('#lu_text').value, status:$('#lu_st').value,
-              tat:$('#lu_tat').value, tatUnit:$('#lu_unit').value };
-  if(!d.eventId) return toast('Choose an event (or Off-event work)', 'err');
-  if(!d.doer) return toast('Choose the doer', 'err');
-  if(!d.text.trim()) return toast('Write the particulars', 'err');
-  const tv = Number(d.tat);
-  if(d.tat==='' || !(d.tatUnit==='Hours' ? tv>0 : (tv>=0 && Math.floor(tv)===tv))) return toast(d.tatUnit==='Hours' ? 'TAT in hours must be more than 0' : 'TAT in days must be a whole number (0 = today)', 'err');
+  const date = $('#lu_date').value, doer = $('#lu_doer').value;
+  if(!date) return toast('Choose a date', 'err');
+  if(!doer) return toast('Choose the doer', 'err');
+  if(id){
+    const u = (ST.data.updates||[]).find(x=>x.id===id) || {};
+    const typed = $('#lu_ev').value;
+    const evId = typed === luEvLabelFor(u.eventId, u.event) ? u.eventId : luResolveEv(typed);
+    const d = { date, eventId:evId, doer, text:$('#lu_text').value, status:$('#lu_st').value, tat:$('#lu_tat').value, tatUnit:$('#lu_unit').value };
+    if(!d.eventId) return toast('Choose an event from the list (or Off-event work)', 'err');
+    if(!d.text.trim()) return toast('Write the particulars', 'err');
+    if(!luTatOk(d.tat, d.tatUnit)) return toast(d.tatUnit==='Hours' ? 'TAT in hours must be more than 0' : 'TAT in days must be a whole number (0 = today)', 'err');
+    const b = $('#lu_go'); b.disabled = true;
+    try{ await run('editUpdate', AUTH(), id, d); closeModal(); toast('Update saved'); await load(); }catch(e){ b.disabled = false; }
+    return;
+  }
+  const lines = [...document.querySelectorAll('#lu_lines .lu-line')].map(l=>({
+    eventId: luResolveEv(l.querySelector('.l_ev').value), typed: l.querySelector('.l_ev').value.trim(),
+    text: l.querySelector('.l_text').value, tat: l.querySelector('.l_tat').value,
+    tatUnit: l.querySelector('.l_unit').value, status: l.querySelector('.l_st').value }));
+  for(let i=0;i<lines.length;i++){
+    const x = lines[i], n = 'Event '+(i+1)+': ';
+    if(!x.eventId) return toast(n+(x.typed ? '"'+x.typed+'" is not in the list — pick one from the suggestions' : 'choose an event (or Off-event work)'), 'err');
+    if(!x.text.trim()) return toast(n+'write the particulars', 'err');
+    if(!luTatOk(x.tat, x.tatUnit)) return toast(n+(x.tatUnit==='Hours' ? 'TAT in hours must be more than 0' : 'TAT in days must be a whole number (0 = today)'), 'err');
+  }
   const b = $('#lu_go'); b.disabled = true;
-  try{ await (id ? run('editUpdate', AUTH(), id, d) : run('addUpdate', AUTH(), d)); closeModal(); toast(id?'Update saved':'Update added'); await load(); }
-  catch(e){ b.disabled = false; }
+  try{
+    await run('addUpdates', AUTH(), date, doer, lines.map(x=>({ eventId:x.eventId, text:x.text, tat:x.tat, tatUnit:x.tatUnit, status:x.status })));
+    closeModal(); toast(lines.length+' update'+(lines.length>1?'s':'')+' added'); await load();
+  }catch(e){ b.disabled = false; }
 }
 async function luStatus(id, el){
   const u = (ST.data.updates||[]).find(x=>x.id===id), val = el.value; el.disabled = true;
@@ -1071,33 +1280,41 @@ function openModal(html, wide){ $('#modalBox').className = 'box' + (wide?' wide'
 function closeModal(){ $('#modal').classList.add('hidden'); }
 
 /* ---------------- popups: task done (to allocator) / enquiry allocated (to allocatee) ---------------- */
+/* ---------------- Notifications: red count on the bell + a list (no popups) ---------------- */
 function handleNotifs(list){
-  ST.notifs = list;
-  $('#bellc').innerHTML = list.length ? '<span class="badge">'+list.length+'</span>' : '';
-  showNextPop();
+  ST.notifs = list || [];
+  const n = ST.notifs.filter(x=>!x.seen).length;
+  $('#bellc').innerHTML = n ? '<span class="badge">'+(n>99?'99+':n)+'</span>' : '';
+  if(ST.notifOpen) renderNotifList();
 }
-function showNextPop(){
-  if(ST.popOpen) return;
-  const n = (ST.notifs||[]).find(x=>!ST.snooze[x.id]);
-  if(!n) return;
-  ST.popOpen = n.id;
-  const enq = /^EVT-/i.test(n.taskId||''), stp = /^STEP-/i.test(n.taskId||''), cnf = /^CONF-/i.test(n.taskId||''), lud = /^LUD-/i.test(n.taskId||'');
-  $('#popBox').innerHTML = '<h3>'+(lud?'Live update done':cnf?'Enquiry confirmed — update the enquiry form':stp?'FMS step marked — update the FMS':enq?'Enquiry allocated to you':'Task complete')+'</h3><div class="msg">'+esc(n.msg)+'</div>' +
-    '<div class="small" style="margin-top:6px">'+esc(n.taskId)+' · '+fmt(n.at)+'</div>' +
-    '<div class="actions"><button class="btn ghost" onclick="snoozePop()">Later</button><button class="btn" onclick="ackPop()">OK</button></div>';
-  $('#pop').classList.remove('hidden');
-}
-async function ackPop(){
-  const id = ST.popOpen;
-  try{ await run('markSeen', AUTH(), id); ST.notifs = ST.notifs.filter(x=>x.id!==id); handleNotifs(ST.notifs); }
-  catch(e){ ST.snooze[id] = 1; }
-  closePop(); showNextPop();
-}
-function snoozePop(){ ST.snooze[ST.popOpen] = 1; closePop(); showNextPop(); }
-function closePop(){ ST.popOpen = false; $('#pop').classList.add('hidden'); }
+function closePop(){ $('#pop').classList.add('hidden'); }      // kept for older callers
+function notifEvId(x){ const m = String((x.taskId||'')+' '+(x.msg||'')).match(/EVT-\d+/i); return m ? m[0].toUpperCase() : ''; }
 function reopenNotifs(){
-  if(!(ST.notifs||[]).length){ toast('No new notifications'); return; }
-  ST.snooze = {}; closePop(); showNextPop();
+  ST.notifOpen = true;
+  openModal('<div class="nf-head"><h3 style="margin:0">Notifications</h3><span style="flex:1"></span>' +
+    '<button class="btn ghost sm" id="nf_all" onclick="markAllNotifs()">Mark all as seen</button></div><div id="nf_list"></div>' +
+    '<div class="actions"><button class="btn ghost" onclick="ST.notifOpen=false;closeModal()">Close</button></div>');
+  renderNotifList();
+}
+function renderNotifList(){
+  const el = $('#nf_list'); if(!el){ ST.notifOpen = false; return; }
+  const list = ST.notifs || [], unseen = list.filter(x=>!x.seen).length;
+  const b = $('#nf_all'); if(b) b.disabled = !unseen;
+  el.innerHTML = !list.length ? '<div class="empty">No notifications yet.</div>' :
+    '<div class="small muted" style="margin:6px 0">'+unseen+' new</div>' +
+    list.map(x=>'<div class="nf'+(x.seen?'':' new')+'" onclick="openNotif(\''+esc(x.id)+'\')">' +
+      '<div class="nf-msg">'+esc(x.msg)+'</div><div class="small muted">'+fmt(x.at)+(notifEvId(x)&&ST.data.events.some(e=>e.id===notifEvId(x))?' · tap to open the event':'')+'</div></div>').join('');
+}
+async function openNotif(id){
+  const x = (ST.notifs||[]).find(n=>n.id===id); if(!x) return;
+  if(!x.seen){ x.seen = true; handleNotifs(ST.notifs); try{ await run('markSeen', AUTH(), id); }catch(e){ x.seen = false; handleNotifs(ST.notifs); } }
+  const ev = notifEvId(x);
+  if(ev && ST.data.events.some(e=>e.id===ev)){ ST.notifOpen = false; eventModal(ev); }
+}
+async function markAllNotifs(){
+  const b = $('#nf_all'); if(b) b.disabled = true;
+  try{ await run('markAllSeen', AUTH()); (ST.notifs||[]).forEach(x=>{ x.seen = true; }); handleNotifs(ST.notifs); toast('All notifications marked as seen'); }
+  catch(e){ if(b) b.disabled = false; }
 }
 
 /* ---------------- PIN login (people without a @creativerays.in account) ---------------- */
