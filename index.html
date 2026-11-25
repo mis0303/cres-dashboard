@@ -213,6 +213,8 @@
   .sn-it{display:flex;gap:.45em;padding:.2em 0;line-height:1.25} .sn-it + .sn-it{border-top:1px dotted #e5e7eb}
   .sn-ic{width:1em;flex:none;text-align:center;color:#374151} .sn-it.done .sn-ic{color:var(--ok)} .sn-it.done .sn-tx{color:var(--muted)}
   .sn-ev{font-size:.8em;color:var(--muted)} .sn-tx{font-size:.95em}
+  .carry{display:inline-block;margin-left:6px;font-size:11px;color:#4b5563;border:1px solid var(--line);border-radius:3px;padding:0 5px;white-space:nowrap}
+  .sn-carry{font-size:.78em;color:var(--muted);white-space:nowrap}
   /* Notification list */
   .nf-head{display:flex;align-items:center;gap:8px}
   #nf_list{max-height:60vh;overflow:auto;margin-top:6px}
@@ -1030,13 +1032,43 @@ function luEvents(){ return (ST.data.events||[]).slice().sort((a,b)=>b.num-a.num
 function luEvLabel(e){ return e.id+' · '+e.company+(evName(e)?' – '+evName(e):''); }
 // Date filter: Today / This week / This month / any month that has rows / All
 function luInRange(u){
-  const w = ST.f.lwhen, n = now(), t0 = istDayStart(n);
-  if(!u.date) return w==='all';
+  const w = ST.f.lwhen, n = now(), t0 = istDayStart(n), d = u.vdate != null ? u.vdate : u.date;   // vdate = day it is shown on (carry forward)
+  if(!d) return w==='all';
   if(w==='all') return true;
-  if(w==='today') return u.date >= t0 && u.date < t0 + 86400000;
-  if(w==='week'){ const back = (istParts(n).w + 6) % 7; return u.date >= t0 - back*86400000 && u.date < t0 + 86400000*(7-back); }   // Mon–Sun
-  if(w==='month') return monthKey(u.date) === monthKey(n);
-  return monthKey(u.date) === w;
+  if(w==='today') return d >= t0 && d < t0 + 86400000;
+  if(w==='week'){ const back = (istParts(n).w + 6) % 7; return d >= t0 - back*86400000 && d < t0 + 86400000*(7-back); }   // Mon–Sun
+  if(w==='month') return monthKey(d) === monthKey(n);
+  return monthKey(d) === w;
+}
+/* Carry forward: an In Progress / Pending task also shows on every next day until its planned date (TAT),
+   with "↻ from 23 Nov · day 3 of 5". A task Done on a later day shows on the day it was Done.
+   Nothing is copied in the sheet: it is the same row, so status / edit / Planned / Actual stay as they are. */
+function luPlanned(u){
+  if(u.at == null || u.tat === '' || u.tat == null) return null;
+  if(u.tatUnit === 'Hours') return u.at + Number(u.tat)*3600000;
+  return istDayStart(u.at) + (Number(u.tat)+1)*86400000 - 60000;        // that many days later, 23:59 (like the sheet)
+}
+function luCarryList(){
+  const DAY = 86400000, today = istDayStart(now()), out = [];
+  (ST.data.updates||[]).forEach(u=>{
+    out.push(Object.assign({}, u, { vdate: u.date }));
+    if(!u.date) return;
+    const origin = istDayStart(u.date), pl = luPlanned(u);
+    const last = pl ? istDayStart(pl) : origin, total = Math.max(1, Math.round((last-origin)/DAY) + 1);
+    const tag = d => ({ fromMs: u.date, n: Math.round((d-origin)/DAY) + 1, total, dueMs: pl });
+    if(u.status==='In Progress' || u.status==='Pending'){
+      for(let d = origin + DAY; d <= Math.min(last, today); d += DAY) out.push(Object.assign({}, u, { vdate: d, carry: tag(d) }));
+    } else if(u.status==='Done' && u.doneAt){
+      const dd = istDayStart(u.doneAt);
+      if(dd > origin && dd <= today) out.push(Object.assign({}, u, { vdate: dd, carry: tag(dd) }));
+    }
+  });
+  return out;
+}
+function carryLabel(u){
+  if(!u.carry) return '';
+  const c = u.carry;
+  return '<span class="carry" title="Carried forward from '+fmtShort(c.fromMs)+' until it is Done or its due date">↻ from '+fmtShort(c.fromMs)+(c.dueMs ? ' · due '+fmtShort(c.dueMs) : '')+'</span>';
 }
 // Row order on Live Updates + PMS Tasks: In Progress → Pending → On Hold → Done (latest date first inside each)
 function luRank(u){ const r = {'In Progress':0, 'Pending':1, 'On Hold':2, 'Done':3}[u.status]; return r==null ? 2 : r; }
@@ -1079,7 +1111,7 @@ function snapOpen(){
 function snapClose(){ const el = $('#snap'); if(el) el.style.display = 'none'; window.removeEventListener('resize', snapFit); }
 function snapRender(){
   const day = ST.snapDay, who = ST.f.lwho;
-  const list = (ST.data.updates||[]).filter(u=>u.date && isoDay(u.date)===day && (!who || u.doer===who));
+  const list = luCarryList().filter(u=>u.vdate && isoDay(u.vdate)===day && (!who || u.doer===who));
   const by = {};
   list.forEach(u=>{ (by[u.doer] = by[u.doer] || { name:u.doerName, items:[] }).items.push(u); });
   const doers = Object.keys(by).sort((a,b)=>doerRank(by[a].name)-doerRank(by[b].name) || String(by[a].name).localeCompare(String(by[b].name)));
@@ -1094,7 +1126,7 @@ function snapRender(){
       const g = by[id], items = g.items.slice().sort((a,b)=>luRank(a)-luRank(b) || (a.at||0)-(b.at||0));
       return '<div class="sn-card"><div class="sn-who">'+esc(g.name)+'<span>'+items.length+'</span></div>' +
         items.map(u=>'<div class="sn-it'+(u.status==='Done'?' done':'')+'"><span class="sn-ic" title="'+esc(u.status)+'">'+(SNAP_ICON[u.status]||'○')+'</span>' +
-          '<div><div class="sn-ev">'+esc(u.eventId==='OFF-EVENT' ? 'Off-event work' : (u.event||u.eventId))+'</div><div class="sn-tx">'+esc(u.text)+'</div></div></div>').join('') + '</div>';
+          '<div><div class="sn-ev">'+esc(u.eventId==='OFF-EVENT' ? 'Off-event work' : (u.event||u.eventId))+'</div><div class="sn-tx">'+esc(u.text)+(u.carry?' <span class="sn-carry">↻ '+fmtShort(u.carry.fromMs)+(u.carry.dueMs?' → due '+fmtShort(u.carry.dueMs):'')+'</span>':'')+'</div></div></div>').join('') + '</div>';
     }).join('') + '</div>' : '<div class="empty">No live updates on this day.</div>');
   snapFit();
 }
@@ -1133,8 +1165,8 @@ function luPeople(){ return ST.boot.people.slice().sort((a,b)=>doerRank(a.name)-
 // Grouped like the PMS sheet: Date (once) → Doer (once) → one line per event
 function renderLiveTable(){
   const f = ST.f, q = f.lq.trim().toLowerCase(), ed = me().canEditUpdates, myId = me().id;
-  const dk = u => u.date ? isoDay(u.date) : '';
-  const list = (ST.data.updates||[]).filter(u=>{
+  const dk = u => u.vdate ? isoDay(u.vdate) : '';
+  const list = luCarryList().filter(u=>{
     if(!luInRange(u)) return false;
     if(mineOnly() && u.doer!==myId) return false;
     if(f.lwho && u.doer!==f.lwho) return false;
@@ -1156,10 +1188,10 @@ function renderLiveTable(){
       ? '<select class="st '+sCls(u.status)+'" onchange="luStatus(\''+u.id+'\',this)">'+(ST.boot.updStatuses||[]).map(s=>'<option '+(s===u.status?'selected':'')+'>'+s+'</option>').join('')+'</select>'
       : '<span class="pill '+sCls(u.status)+'">'+esc(u.status)+'</span>';
     h += '<tr class="'+(newD?'g-date ':'')+(newK?'g-doer ':'')+(u.status==='Done'?'lu-done':'')+'">';
-    if(newD) h += '<td class="g-dt" rowspan="'+nDate[d]+'">'+fmtDay(u.date)+'</td>';
+    if(newD) h += '<td class="g-dt" rowspan="'+nDate[d]+'">'+fmtDay(u.vdate)+'</td>';
     if(newK) h += '<td class="g-who" rowspan="'+nDoer[k]+'"><b>'+esc(u.doerName)+'</b><div class="small muted">'+nDoer[k]+' event'+(nDoer[k]>1?'s':'')+'</div></td>';
     h += '<td>'+luEventCell(u)+'</td>' +
-      '<td class="lu-text">'+esc(u.text)+'<div class="small muted" title="Last updated">'+esc(u.updByName||u.byName)+' · '+fmt(u.updAt||u.at)+'</div></td>' +
+      '<td class="lu-text">'+esc(u.text)+carryLabel(u)+'<div class="small muted" title="Last updated">'+esc(u.updByName||u.byName)+' · '+fmt(u.updAt||u.at)+'</div></td>' +
       '<td>'+st+'</td>'+(ed?'<td><button class="btn ghost sm" onclick="luModal(\''+u.id+'\')">Edit</button></td>':'')+'</tr>';
     lastD = d; lastK = k;
   });
