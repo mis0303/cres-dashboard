@@ -1174,7 +1174,7 @@ function renderCalBody(){
   const c = ST.cal, list = calEvents(), mk = c.y+'-'+String(c.m+1).padStart(2,'0');
   const inMonth = list.filter(e=>calIso(e).startsWith(mk)), noDate = list.filter(e=>!calIso(e));
   let h = '<div class="cal-sum"><div><b>'+inMonth.length+'</b>events this month</div><div><b>'+inMonth.filter(e=>calPh(e)==='c').length+'</b>confirmed</div>' +
-    '<div><b>'+inMonth.filter(e=>calPh(e)!=='c').length+'</b>ongoing enquiries</div><div><b>'+new Set(inMonth.map(calIso)).size+'</b>busy days</div></div>';
+    '<div><b>'+inMonth.filter(e=>calPh(e)!=='c').length+'</b>ongoing enquiries</div></div>';
   if(noDate.length) h += '<div class="cal-nodate"><b>No event date ('+noDate.length+'):</b> '+noDate.map(calChip).join('')+'</div>';
   h += c.view==='list' ? calListHtml(inMonth) : calMonthHtml(list);
   $('#view').innerHTML = h;
