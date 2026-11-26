@@ -215,6 +215,46 @@
   .sn-ev{font-size:.8em;color:var(--muted)} .sn-tx{font-size:.95em}
   .carry{display:inline-block;margin-left:6px;font-size:11px;color:#4b5563;border:1px solid var(--line);border-radius:3px;padding:0 5px;white-space:nowrap}
   .sn-carry{font-size:.78em;color:var(--muted);white-space:nowrap}
+  /* Event Calendar */
+  .cal-month{font-size:16px;min-width:150px;text-align:center}
+  #cal_q{min-width:220px}
+  .cal-legend{display:flex;gap:12px;font-size:12px;color:#374151;margin-left:auto;align-items:center}
+  .cal-legend span{display:inline-flex;align-items:center;gap:5px}
+  .cal-sw{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .cal-sw.kc{background:#e3f3ea;border:1px solid #9fd3b5;border-left:3px solid #1f7a4d}
+  .cal-sw.ko{background:#eaf2fb;border:1px solid #b9d3ef;border-left:3px solid #1d5fa8}
+  .cal-sw.kh{background:#f3f4f6;border:1px dashed #6b7280}
+  .cal-sum{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+  .cal-sum div{background:#fff;border:1px solid var(--line);border-radius:4px;padding:6px 12px;font-size:12px;color:var(--muted)}
+  .cal-sum b{font-size:15px;color:var(--ink);margin-right:4px}
+  .cal-nodate{background:#fff;border:1px dashed var(--line);border-radius:4px;padding:6px 10px;margin-bottom:10px;font-size:12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .cal-nodate .cal-ev{width:auto;margin:0}
+  .cal{background:#fff;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+  .cal-dow{display:grid;grid-template-columns:repeat(7,1fr);background:#f9fafb;border-bottom:1px solid var(--line)}
+  .cal-dow div{padding:7px 8px;font-size:11px;font-weight:700;color:#4b5563;text-transform:uppercase;letter-spacing:.3px}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+  .cal-day{min-height:112px;border-right:1px solid #eceef1;border-bottom:1px solid #eceef1;padding:5px 6px;background:#fff;min-width:0}
+  .cal-day:nth-child(7n){border-right:0} .cal-day.other{background:#fafafa} .cal-day.other .cal-dn{color:#c0c4cc}
+  .cal-dn{font-size:12px;font-weight:600;color:#374151;margin-bottom:4px;display:flex;justify-content:space-between}
+  .cal-dn em{font-style:normal;font-weight:500;color:var(--muted)}
+  .cal-day.today .cal-dn span{background:var(--brand);color:#fff;border-radius:10px;padding:0 7px}
+  .cal-ev{display:block;width:100%;text-align:left;border:1px solid;border-left-width:3px;border-radius:3px;padding:2px 5px;margin-bottom:3px;font-size:11.5px;line-height:1.3;cursor:pointer;font-family:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cal-ev.kc{background:#e3f3ea;border-color:#9fd3b5;border-left-color:#1f7a4d;color:#14532d}
+  .cal-ev.ko{background:#eaf2fb;border-color:#b9d3ef;border-left-color:#1d5fa8;color:#173f6e}
+  .cal-ev.kh{background:#f3f4f6;border:1px dashed #9ca3af;border-left:3px dashed #6b7280;color:#4b5563}
+  .cal-more{border:0;background:none;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer;padding:0 2px}
+  .cal-lday{display:grid;grid-template-columns:110px 1fr;border-bottom:1px solid #eceef1} .cal-lday:last-child{border-bottom:0}
+  .cal-ld{padding:10px 12px;border-right:1px solid #eceef1;background:#fafafa} .cal-ld b{display:block;font-size:20px} .cal-ld span{font-size:12px;color:var(--muted)}
+  .cal-ld.today b{color:var(--brand)}
+  .cal-litems{padding:8px 10px;display:flex;flex-direction:column;gap:6px}
+  .cal-li{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;border:1px solid;border-left-width:3px;border-radius:4px;padding:6px 10px;cursor:pointer;margin-bottom:6px}
+  .cal-litems .cal-li{margin-bottom:0}
+  .cal-li.kc{background:#e3f3ea;border-color:#9fd3b5;border-left-color:#1f7a4d}
+  .cal-li.ko{background:#eaf2fb;border-color:#b9d3ef;border-left-color:#1d5fa8}
+  .cal-li.kh{background:#f3f4f6;border:1px dashed #9ca3af;border-left:3px dashed #6b7280}
+  .cal-pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:#fff;border:1px solid var(--line);white-space:nowrap;display:inline-block}
+  .cal-pill.kc{color:#1f7a4d;border-color:#9fd3b5} .cal-pill.ko{color:#1d5fa8;border-color:#b9d3ef} .cal-pill.kh{color:#6b7280;border-style:dashed}
+  @media (max-width:800px){ .cal-day{min-height:64px;padding:3px} .cal-ev{font-size:0;height:8px;padding:0;margin-bottom:2px} .cal-legend{margin-left:0} #cal_q{min-width:0;flex:1} }
   /* Notification list */
   .nf-head{display:flex;align-items:center;gap:8px}
   #nf_list{max-height:60vh;overflow:auto;margin-top:6px}
@@ -443,7 +483,7 @@ function renderInner(){
   $('#errors').innerHTML = (d.errors||[]).length
     ? '<div class="errors"><b>Source read error:</b> '+d.errors.map(esc).join(' · ')+'</div>' : '';
   // Your Tasks is the first tab (opens by default), then Dashboard
-  const tabs = [['fms','Your Tasks'],['dash','Dashboard'],['tracker','Event Tracker']];   // One-off Tasks tab removed for now
+  const tabs = [['fms','Your Tasks'],['dash','Dashboard'],['tracker','Event Tracker'],['cal','Event Calendar']];   // One-off Tasks tab removed for now
   if(me().isPC) tabs.splice(1, 0, ['follow','Follow-ups']);
   tabs.push(['live','Live Updates']);                 // after One-off Tasks — everyone can view
   if(!tabs.some(t=>t[0]===ST.tab)) ST.tab = tabs[0][0];
@@ -457,7 +497,7 @@ function renderInner(){
   $('#tabs').innerHTML = h;
   renderCards();
   renderDateBar();
-  ({dash:renderDash, tracker:renderTracker, fms:renderFms, follow:renderFollow, live:renderLive})[ST.tab]();
+  ({dash:renderDash, tracker:renderTracker, cal:renderCal, fms:renderFms, follow:renderFollow, live:renderLive})[ST.tab]();
 }
 
 /* ---------------- All / Mine scope (for people who can see everything) ---------------- */
@@ -1091,6 +1131,108 @@ function renderLive(){
     (ed ? '<button class="btn" onclick="luModal()">+ Add update</button>' : '');
   renderLiveTable();
 }
+/* ---------------- Event Calendar: events on their Event Date (Confirmed = green, Ongoing = light blue, On Hold = grey) ----------------
+   Same events as the Dashboard (Confirmed + Ongoing). Nothing about FMS steps or doers is shown here. */
+ST.cal = ST.cal || { y:null, m:null, view:'month', f:'all', q:'' };
+const CAL_PH = { c:'Confirmed', o:'Ongoing enquiry', h:'On hold' };
+function calPh(e){ return isConf(e) ? 'c' : (e.hold ? 'h' : 'o'); }
+function calIso(e){
+  const m = String(e.eventDate||'').trim().match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/);      // DD/MM/YYYY
+  if(!m) return '';
+  const d = +m[1], mo = +m[2], y = +m[3];
+  if(mo<1 || mo>12 || d<1 || d>31) return '';
+  return y+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+}
+function calEvents(){
+  const c = ST.cal, q = c.q.trim().toLowerCase();
+  const base = scopeMine() ? ST.data.events.filter(isMineEvent) : ST.data.events;
+  return base.filter(e=>isConf(e) || isOngoing(e)).filter(e=>{
+    const ph = calPh(e);
+    if(c.f==='c' && ph!=='c') return false;
+    if(c.f==='o' && ph==='c') return false;
+    if(q && !(e.id+' '+e.company+' '+evName(e)+' '+e.client).toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+function calOnDay(list, iso){ return list.filter(e=>calIso(e)===iso).sort((a,b)=>'cho'.indexOf(calPh(a))-'cho'.indexOf(calPh(b)) || a.num-b.num); }
+function renderCal(){
+  const c = ST.cal, t = isoDay(now());
+  if(c.y==null){ c.y = +t.slice(0,4); c.m = +t.slice(5,7)-1; }
+  const seg = (arr, cur, fn) => '<span class="scope">'+arr.map(a=>'<button class="'+(a[0]===cur?'on':'')+'" onclick="'+fn+'(\''+a[0]+'\')">'+a[1]+'</button>').join('')+'</span>';
+  $('#filters').innerHTML =
+    '<button class="btn ghost sm" onclick="calMove(-1)" title="Previous month">‹</button>' +
+    '<b class="cal-month">'+new Date(Date.UTC(c.y,c.m,1)).toLocaleDateString('en-GB',{month:'long',year:'numeric',timeZone:'UTC'})+'</b>' +
+    '<button class="btn ghost sm" onclick="calMove(1)" title="Next month">›</button>' +
+    '<button class="btn ghost sm" onclick="calToday()">Today</button>' +
+    seg([['month','Month'],['list','List']], c.view, 'calView') +
+    seg([['all','All'],['c','Confirmed'],['o','Ongoing']], c.f, 'calF') +
+    '<input id="cal_q" placeholder="Search event — company, ID, client…" value="'+esc(c.q)+'" oninput="ST.cal.q=this.value;renderCalBody()">' +
+    '<span class="cal-legend"><span><i class="cal-sw kc"></i>Confirmed</span><span><i class="cal-sw ko"></i>Ongoing enquiry</span><span><i class="cal-sw kh"></i>On hold</span></span>';
+  renderCalBody();
+}
+function renderCalBody(){
+  const c = ST.cal, list = calEvents(), mk = c.y+'-'+String(c.m+1).padStart(2,'0');
+  const inMonth = list.filter(e=>calIso(e).startsWith(mk)), noDate = list.filter(e=>!calIso(e));
+  let h = '<div class="cal-sum"><div><b>'+inMonth.length+'</b>events this month</div><div><b>'+inMonth.filter(e=>calPh(e)==='c').length+'</b>confirmed</div>' +
+    '<div><b>'+inMonth.filter(e=>calPh(e)!=='c').length+'</b>ongoing enquiries</div><div><b>'+new Set(inMonth.map(calIso)).size+'</b>busy days</div></div>';
+  if(noDate.length) h += '<div class="cal-nodate"><b>No event date ('+noDate.length+'):</b> '+noDate.map(calChip).join('')+'</div>';
+  h += c.view==='list' ? calListHtml(inMonth) : calMonthHtml(list);
+  $('#view').innerHTML = h;
+}
+function calChip(e){ const ph = calPh(e); return '<button class="cal-ev k'+ph+'" onclick="calEvModal(\''+e.id+'\')" title="'+esc(e.company+(evName(e)?' – '+evName(e):'')+' ('+CAL_PH[ph]+')')+'">'+esc(e.company||e.id)+'</button>'; }
+function calMonthHtml(list){
+  const c = ST.cal, today = isoDay(now());
+  const start = (new Date(Date.UTC(c.y,c.m,1)).getUTCDay()+6)%7, days = new Date(Date.UTC(c.y,c.m+1,0)).getUTCDate();
+  const cells = Math.ceil((start+days)/7)*7, MAX = 3;
+  let h = '<div class="cal"><div class="cal-dow">'+['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>'<div>'+d+'</div>').join('')+'</div><div class="cal-grid">';
+  for(let i=0;i<cells;i++){
+    const d = new Date(Date.UTC(c.y,c.m,1-start+i)), iso = d.toISOString().slice(0,10), other = d.getUTCMonth()!==c.m;
+    const evs = calOnDay(list, iso);
+    h += '<div class="cal-day'+(other?' other':'')+(iso===today?' today':'')+'"><div class="cal-dn"><span>'+d.getUTCDate()+'</span>'+(evs.length>1?'<em>'+evs.length+'</em>':'')+'</div>' +
+      evs.slice(0,MAX).map(calChip).join('') +
+      (evs.length>MAX?'<button class="cal-more" onclick="calDayModal(\''+iso+'\')">+ '+(evs.length-MAX)+' more</button>':'') + '</div>';
+  }
+  return h + '</div></div>';
+}
+function calItem(e){
+  const ph = calPh(e);
+  return '<div class="cal-li k'+ph+'" onclick="calEvModal(\''+e.id+'\')"><span class="mono">'+e.id+'</span>' +
+    '<div><b>'+esc(e.company)+'</b>'+(evName(e)?' – '+esc(evName(e)):'')+'<div class="small muted">'+esc(e.client||'—')+'</div></div>' +
+    '<span class="cal-pill k'+ph+'">'+CAL_PH[ph]+'</span></div>';
+}
+function calListHtml(inMonth){
+  const dates = [...new Set(inMonth.map(calIso))].sort(), today = isoDay(now());
+  if(!dates.length) return '<div class="tablewrap"><div class="empty">No events this month.</div></div>';
+  return '<div class="tablewrap">' + dates.map(iso=>{
+    const d = new Date(iso+'T00:00:00Z');
+    return '<div class="cal-lday"><div class="cal-ld'+(iso===today?' today':'')+'"><b>'+d.getUTCDate()+'</b><span>'+d.toLocaleDateString('en-GB',{weekday:'long',timeZone:'UTC'})+'</span></div>' +
+      '<div class="cal-litems">'+calOnDay(inMonth, iso).map(calItem).join('')+'</div></div>';
+  }).join('') + '</div>';
+}
+function calFmt(iso){ return new Date(iso+'T00:00:00Z').toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'}); }
+function calDayModal(iso){
+  const evs = calOnDay(calEvents(), iso);
+  openModal('<h3>'+calFmt(iso)+'</h3><div class="small muted" style="margin-bottom:10px">'+evs.length+' events</div>'+evs.map(calItem).join('') +
+    '<div class="actions"><button class="btn ghost" onclick="closeModal()">Close</button></div>');
+}
+// Event details for the calendar — enquiry form details only, no FMS / doer information
+function calEvModal(id){
+  const e = ST.data.events.find(x=>x.id===id); if(!e) return;
+  const F = e.form || {}, ph = calPh(e), iso = calIso(e);
+  let h = '<span class="cal-pill k'+ph+'">'+CAL_PH[ph]+'</span><h3 style="margin-top:6px">'+esc(e.company||'—')+' <span class="mono">'+e.id+'</span></h3>' +
+    '<div class="kv">'+kv('Event name',evName(e))+kv('Event date', iso ? calFmt(iso) : (e.eventDate||'—'))+kv('Client',e.client) +
+    (e.hold ? kv('On Hold',[e.hold.at?fmtShort(e.hold.at):'', e.hold.byName, e.hold.note].filter(Boolean).join(' · ')) : '') +
+    (e.form ? kv('Phone',F.phone)+kv('Email',F.email)+kv('Location',F.location)+kv('Event type',F.eventType)+kv('Service',F.service)+
+              kv('Captured by',F.capturedBy)+kv('Enquiry date',F.enquiryDate)+kv('Remark',F.remark) : '') + '</div>';
+  if(e.form) h += '<b class="small">EVENT BRIEF</b><div class="brief">'+esc(F.brief||'—')+'</div>';
+  h += '<div class="actions"><button class="btn ghost" onclick="closeModal()">Close</button></div>';
+  openModal(h);
+}
+function calMove(n){ const c = ST.cal; c.m += n; if(c.m<0){ c.m=11; c.y--; } if(c.m>11){ c.m=0; c.y++; } renderCal(); }
+function calToday(){ const t = isoDay(now()); ST.cal.y = +t.slice(0,4); ST.cal.m = +t.slice(5,7)-1; renderCal(); }
+function calView(v){ ST.cal.view = v; renderCal(); }
+function calF(v){ ST.cal.f = v; renderCal(); }
+
 /* ---------------- Today snapshot: whole day on one screen + PNG download ----------------
    Cards per doer (DOER_ORDER), one short line per update. Text shrinks until everything fits the screen. */
 const SNAP_ICON = { 'Done':'✓', 'In Progress':'●', 'Pending':'○', 'On Hold':'‖' };
